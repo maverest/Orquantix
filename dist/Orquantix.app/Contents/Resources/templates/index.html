@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orquantix</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <div class="easter-egg-layer" id="easterEggLayer" aria-hidden="true">
+    <div class="easter-egg easter-shachi" id="easterShachi">
+      <img class="shachi-orchid" src="/static/easter_assets/shachi_orchid.png" alt="">
+    </div>
+    <div class="easter-egg easter-mathieu" id="easterMathieu">
+      <img class="mathieu-pants" src="/static/easter_assets/mathieu_pants.png" alt="">
+    </div>
+    <div class="easter-egg easter-constance" id="easterConstance">
+      <img class="constance-totem" src="/static/easter_assets/constance_totem.png" alt="">
+    </div>
+    <div class="easter-egg easter-kefir" id="easterKefir">
+      <div class="kefir-rain" id="kefirRain"></div>
+    </div>
+    <div class="easter-egg easter-velo" id="easterVelo">
+      <img class="easter-photo easter-photo-velo" src="/static/easter_assets/velo.png" alt="">
+    </div>
+    <div class="easter-egg easter-stluc" id="easterStLuc">
+      <img class="easter-photo easter-photo-stluc" src="/static/easter_assets/stluc.png" alt="">
+    </div>
+    <div class="easter-egg easter-mullet" id="easterMullet">
+      <img class="easter-photo easter-photo-mullet" src="/static/easter_assets/mullet_scissors.png" alt="">
+    </div>
+    <div class="easter-egg easter-voisin" id="easterVoisin">
+      <img class="easter-photo easter-photo-voisin" src="/static/easter_assets/voisin.png" alt="">
+    </div>
+  </div>
+
+  <!-- ===== Download / Loading screen ===== -->
+  <div class="download-screen" id="downloadScreen">
+    <h1 class="app-title">Orquantix</h1>
+    <p class="download-intro">
+      Ca chargggeeeeee c'est pas long !
+    </p>
+    <div class="download-progress-container">
+      <div class="download-progress-bar" id="progressBar" style="width:0%"></div>
+    </div>
+    <p class="download-detail" id="downloadDetail">Initialisation…</p>
+    <p class="download-error" id="downloadError" style="display:none"></p>
+  </div>
+
+  <!-- ===== Game screen ===== -->
+  <div class="game-screen" id="gameScreen" style="display:none">
+
+    <header class="game-header">
+      <h1 class="app-title">Orquantix</h1>
+      <div class="game-meta">
+        <span class="daily-difficulty" id="dailyDifficulty"></span>
+        <span class="timer-display" id="timerDisplay">Timer : --:--</span>
+        <button class="new-game-btn give-up-btn" id="giveUpBtn" onclick="giveUp()">
+          I give up
+        </button>
+        <button class="new-game-btn" id="timerBtn" onclick="startTimerMode()">
+          Mode timer
+        </button>
+        <button class="new-game-btn" id="hintToggleBtn" onclick="toggleHintPanel()">
+          Indices
+        </button>
+        <button class="new-game-btn dyslexic-toggle" id="dyslexicToggle" onclick="toggleDyslexic()">
+          Mode dyslexique : OFF
+        </button>
+      </div>
+    </header>
+
+    <form class="guess-form" id="guessForm" onsubmit="submitGuess(event)">
+      <input
+        type="text"
+        id="guessInput"
+        class="guess-input"
+        placeholder="Proposez un mot…"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+      >
+      <button type="submit" class="submit-btn">Valider</button>
+    </form>
+
+    <p class="error-message" id="errorMessage" style="display:none"></p>
+
+    <div class="suggestion-box" id="suggestionBox" style="display:none">
+      Vouliez-vous dire <strong id="suggestionWord"></strong>&nbsp;?
+      <button class="suggestion-yes" onclick="acceptSuggestion()">Oui</button>
+      <button class="suggestion-no" onclick="dismissSuggestion()">Non</button>
+    </div>
+
+    <div class="hint-panel" id="hintPanel" style="display:none">
+      <button class="hint-btn" onclick="requestHint('first-letter')">Première lettre</button>
+      <button class="hint-btn hint-btn-elegant" onclick="requestHint('word-length')">Nombre de lettres</button>
+      <button class="hint-btn hint-btn-dirty" onclick="requestHint('better-word')">Mot plus proche</button>
+    </div>
+
+    <div class="orca-tools" id="orcaTools">
+      <div class="orca-tool" draggable="true" data-orca-tool="neutral">
+        <span class="orca-tool-icon" aria-hidden="true">💧</span>
+        <span class="orca-tool-label">Eau calme</span>
+      </div>
+      <div class="orca-tool" draggable="true" data-orca-tool="mute">
+        <span class="orca-tool-icon" aria-hidden="true">🩹</span>
+        <span class="orca-tool-label">Scotché</span>
+      </div>
+      <div class="orca-tool" draggable="true" data-orca-tool="trashtalk">
+        <span class="orca-tool-icon" aria-hidden="true">🧃</span>
+        <span class="orca-tool-label">Trash talk juice</span>
+      </div>
+      <div class="orca-tool orca-tool-hint" draggable="true" data-orca-tool="golden-fish">
+        <span class="orca-tool-icon" aria-hidden="true">🐟</span>
+        <span class="orca-tool-label">Poisson doré</span>
+      </div>
+    </div>
+
+    <div class="orca-panel orca-intrigued" id="orcaPanel">
+      <div class="orca-avatar" id="orcaAvatar" aria-hidden="true">
+        <img class="orca-avatar-image" id="orcaAvatarImage" src="/static/orca_assets/orque_base.png" alt="">
+        <span class="orca-accessory" id="orcaAccessory"></span>
+      </div>
+      <div class="orca-dialog">
+        <div class="orca-bubble" id="orcaBubble">Ola que tal</div>
+        <div class="orca-status">
+          <button class="orca-replay-btn" id="orcaReplayBtn" type="button" onclick="newGame()" style="display:none">
+            Rejouer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <table class="guess-table" id="guessTable">
+      <thead>
+        <tr>
+          <th class="col-num">#</th>
+          <th class="col-word">Mot</th>
+          <th class="col-proximity">Proximité</th>
+          <th class="col-orca">Orque</th>
+          <th class="col-score">Score brut</th>
+        </tr>
+      </thead>
+      <tbody id="guessTableBody"></tbody>
+    </table>
+
+  </div><!-- /.game-screen -->
+
+  <script>
+    const ORCA_TOOLS = {
+      neutral: {
+        kind: 'mode',
+        mode: 'neutral',
+        badge: '💧',
+        bubble: 'retour à la chill'
+      },
+      mute: {
+        kind: 'mode',
+        mode: 'mute',
+        badge: '🩹',
+        bubble: '...'
+      },
+      trashtalk: {
+        kind: 'mode',
+        mode: 'trashtalk',
+        badge: '🧃',
+        bubble: 'ehehehehehehe'
+      },
+      'golden-fish': {
+        kind: 'hint',
+        hintType: 'golden-fish',
+        badge: '🐟',
+        bubble: 'Le poisson doré remonte un voisin très fort.'
+      }
+    };
+    const ORCA_MASCOTS = {
+      default: {
+        neutral: '/static/orca_assets/orque_base.png',
+        mute: '/static/orca_assets/orque_scotche.png',
+        trashtalk: '/static/orca_assets/orque_trash_talk.png'
+      },
+      dyslexic: {
+        neutral: '/static/orca_assets/orque_base_dislex.png',
+        mute: '/static/orca_assets/orque_scotche_dislex.png',
+        trashtalk: '/static/orca_assets/orque_trash_talk_dislex.png'
+      }
+    };
+    const PROXIMITY_ICONS = {
+      sick: '/static/proximity_assets/1.png',
+      vexed: '/static/proximity_assets/2.png',
+      intrigued: '/static/proximity_assets/3.png',
+      overexcited: '/static/proximity_assets/4.png',
+      solar: '/static/proximity_assets/5.png',
+      found: '/static/proximity_assets/6.png'
+    };
+    const ORCA_LINES = {
+      neutral: {
+        sick: ['Nope…'],
+        vexed: ['Mouais….'],
+        intrigued: ['Hmmmm okok'],
+        overexcited: ['Dammmmnnnn !!'],
+        solar: ['WWWWOOOOOOOAAAAAAAAAAAAWWWW !!!!'],
+        found: ['Bien ouej !!!'],
+        unknown: [
+          '¿Hablas español?',
+          'Je trouve pas ce mot dans le vocabulaire.'
+        ],
+        'first-letter': ['voila le première lettre'],
+        'word-length': ['Voila la taille du mot'],
+        'better-word': ['Essaie ce voisin'],
+        'golden-fish': ['Amen'],
+        'timer-start': ['Hajime']
+      },
+      trashtalk: {
+        sick: [
+          'Nope, nope nope nope c’est vraiment nul',
+          'vrmt t’abuses fais un effort',
+          'Je crois t’as cours de dessin la faut que t’y aille',
+          'Sinon demande de l’aide à tes élèves de 8 ans nan ??',
+          'pfffffffffff',
+          'zZZzZZzzZzzZZZzzzzZZZ',
+          'nononononononon tjr bien nul',
+          'N.  U.  L. '
+        ],
+        vexed: [
+          'Nope, nope nope nope c’est vraiment nul',
+          'vrmt t’abuses fais un effort',
+          'Je crois t’as cours de dessin la faut que t’y aille',
+          'Sinon demande de l’aide à tes élèves de 8 ans nan ??',
+          'pfffffffffff',
+          'zZZzZZzzZzzZZZzzzzZZZ',
+          'nononononononon tjr bien nul'
+        ],
+        intrigued: ['Hmmmm okok', 'Mouaiiiisss daccc', 'pfffffffffff', 'zZZzZZzzZzzZZZzzzzZZZ'],
+        overexcited: ['DAMMMNNN !!'],
+        solar: ['WOWOWOWOWOWO CALMA'],
+        found: ['EZ !'],
+        unknown: [
+          'Sorry le jeu est pas en espagnol enft, on parle français ici',
+          '¿Hablas español?',
+          'On apprend pas l’orthographe à la HEP ??'
+        ]
+        ,
+        'first-letter': ['voila le première lettre'],
+        'word-length': ['Voila la taille du mot'],
+        'better-word': ['Essaie ce voisin'],
+        'golden-fish': ['Va te faire foutre'],
+        'timer-start': ['Hajime']
+      }
+    };
+
+    let guesses = [];
+    let startTime = null;
+    let guessCounter = 0;
+    let dyslexicMode = localStorage.getItem('dyslexicMode') === 'true';
+    let pendingSuggestion = null;
+    let orcaMode = localStorage.getItem('orcaMode') || 'neutral';
+    let currentOrcaMood = 'intrigued';
+    let draggedOrcaTool = null;
+    let timerRunning = false;
+    let timerStartedAt = null;
+    let timerCompletedMs = null;
+    let timerInterval = null;
+    let currentGameUsedHint = false;
+    let currentGameResolved = false;
+    let kefirRainBuilt = false;
+
+    function toggleDyslexic() {
+      dyslexicMode = !dyslexicMode;
+      localStorage.setItem('dyslexicMode', dyslexicMode);
+      document.getElementById('dyslexicToggle').textContent =
+        'Mode dyslexique : ' + (dyslexicMode ? 'ON' : 'OFF');
+      document.getElementById('dyslexicToggle').classList.toggle('active', dyslexicMode);
+      document.body.classList.toggle('dyslexic-mode', dyslexicMode);
+      setOrcaState(currentOrcaMood, document.getElementById('orcaBubble').textContent || '...');
+    }
+
+    function buildKefirRain() {
+      if (kefirRainBuilt) return;
+      const container = document.getElementById('kefirRain');
+      if (!container) return;
+
+      const grains = [
+        [4, 0.0, 0.8, 0.92, 0.1],
+        [9, 0.18, -0.5, 1.05, 0.16],
+        [14, 0.4, 1.1, 0.84, -0.12],
+        [19, 0.08, -1.3, 0.96, 0.22],
+        [24, 0.3, 0.6, 1.12, -0.28],
+        [29, 0.52, -0.8, 0.76, 0.08],
+        [35, 0.14, 1.5, 1.04, 0.24],
+        [40, 0.44, -0.2, 0.9, -0.16],
+        [46, 0.22, 0.9, 1.18, 0.12],
+        [52, 0.6, -1.0, 0.8, -0.2],
+        [58, 0.06, 0.3, 1.08, 0.18],
+        [63, 0.36, -1.6, 0.88, -0.1],
+        [69, 0.2, 1.2, 1.14, 0.26],
+        [74, 0.48, -0.6, 0.82, -0.18],
+        [80, 0.28, 0.4, 0.98, 0.1],
+        [85, 0.66, -1.4, 1.1, -0.24],
+        [90, 0.12, 0.7, 0.86, 0.14],
+        [94, 0.54, -0.9, 1.06, -0.12]
+      ];
+
+      for (const [left, delay, drift, scale, squish] of grains) {
+        const grain = document.createElement('span');
+        grain.className = 'kefir-grain';
+        grain.style.setProperty('--grain-left', left + '%');
+        grain.style.setProperty('--grain-delay', delay + 's');
+        grain.style.setProperty('--grain-drift', drift + 'vw');
+        grain.style.setProperty('--grain-scale', scale);
+        grain.style.setProperty('--grain-squish', squish);
+        container.appendChild(grain);
+      }
+
+      kefirRainBuilt = true;
+    }
+
+    function showSuggestion(word) {
+      pendingSuggestion = word;
+      document.getElementById('suggestionWord').textContent = word;
+      document.getElementById('suggestionBox').style.display = 'flex';
+    }
+
+    function dismissSuggestion() {
+      pendingSuggestion = null;
+      document.getElementById('suggestionBox').style.display = 'none';
+    }
+
+    function acceptSuggestion() {
+      const word = pendingSuggestion;
+      dismissSuggestion();
+      submitWord(word);
+    }
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function proximityClass(mood) {
+      return 'orca-' + mood;
+    }
+
+    function pick(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function formatProgress(progress, found) {
+      if (found) return '100.0';
+      if (progress >= 99) return Number(progress).toFixed(2);
+      return Number(progress).toFixed(1);
+    }
+
+    function getProgressAnimationDuration(progress) {
+      const clamped = Math.max(0, Math.min(100, Number(progress) || 0));
+      return Math.min(2200, 520 + (clamped * 12));
+    }
+
+    function animateProgressReveal(row, guess) {
+      const valueEl = row.querySelector('.proximity-value');
+      const fillEl = row.querySelector('.proximity-bar-fill');
+      const targetProgress = Math.max(0, Math.min(100, Number(guess.proximity.progress) || 0));
+
+      guess.progressAnimated = true;
+
+      if (!valueEl || !fillEl || targetProgress <= 0) {
+        if (valueEl) valueEl.textContent = formatProgress(targetProgress, guess.win) + '%';
+        if (fillEl) fillEl.style.width = targetProgress + '%';
+        return Promise.resolve();
+      }
+
+      fillEl.classList.add('is-animating');
+
+      return new Promise(resolve => {
+        const duration = getProgressAnimationDuration(targetProgress);
+        const start = performance.now();
+
+        function step(now) {
+          const elapsed = now - start;
+          const progressRatio = Math.min(elapsed / duration, 1);
+          const currentProgress = targetProgress * progressRatio;
+
+          fillEl.style.width = currentProgress + '%';
+          if (targetProgress >= 10) {
+            valueEl.textContent = Math.floor(currentProgress) + '%';
+          } else {
+            valueEl.textContent = currentProgress.toFixed(1) + '%';
+          }
+
+          if (progressRatio < 1) {
+            requestAnimationFrame(step);
+            return;
+          }
+
+          fillEl.classList.remove('is-animating');
+          fillEl.style.width = targetProgress + '%';
+          valueEl.textContent = formatProgress(targetProgress, guess.win) + '%';
+          resolve();
+        }
+
+        requestAnimationFrame(step);
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSeconds = Math.max(0, Math.round(ms / 1000));
+      const m = Math.floor(totalSeconds / 60);
+      const s = String(totalSeconds % 60).padStart(2, '0');
+      return m + ':' + s;
+    }
+
+    function updateTimerDisplay() {
+      const el = document.getElementById('timerDisplay');
+      if (timerRunning && timerStartedAt !== null) {
+        el.textContent = 'Timer : ' + formatDuration(Date.now() - timerStartedAt);
+        return;
+      }
+      if (timerCompletedMs !== null) {
+        el.textContent = 'Timer : ' + formatDuration(timerCompletedMs);
+        return;
+      }
+      el.textContent = 'Timer : --:--';
+    }
+
+    function updateTimerButton() {
+      const button = document.getElementById('timerBtn');
+      if (timerRunning) {
+        button.textContent = 'Timer en cours';
+        button.disabled = true;
+        return;
+      }
+      if (timerCompletedMs !== null) {
+        button.textContent = 'Timer terminé';
+        button.disabled = true;
+        return;
+      }
+      button.textContent = 'Mode timer';
+      button.disabled = false;
+    }
+
+    function updateGiveUpButton() {
+      const button = document.getElementById('giveUpBtn');
+      const alreadyResolved = guesses.some(g => g.win);
+      button.disabled = alreadyResolved;
+    }
+
+    function updateReplayButton(visible) {
+      document.getElementById('orcaReplayBtn').style.display = visible ? 'inline-flex' : 'none';
+    }
+
+    function startTimerMode() {
+      if (timerRunning || timerCompletedMs !== null) return;
+      timerRunning = true;
+      timerStartedAt = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimerDisplay, 250);
+      updateTimerDisplay();
+      updateTimerButton();
+      speakOrca('timer-start', currentOrcaMood, true);
+    }
+
+    function stopTimer() {
+      if (!timerRunning || timerStartedAt === null) return;
+      timerCompletedMs = Date.now() - timerStartedAt;
+      timerRunning = false;
+      clearInterval(timerInterval);
+      timerInterval = null;
+      updateTimerDisplay();
+      updateTimerButton();
+    }
+
+    function resetTimer() {
+      timerRunning = false;
+      timerStartedAt = null;
+      timerCompletedMs = null;
+      clearInterval(timerInterval);
+      timerInterval = null;
+      updateTimerDisplay();
+      updateTimerButton();
+    }
+
+    function setOrcaState(mood, message) {
+      currentOrcaMood = mood;
+      const panel = document.getElementById('orcaPanel');
+      panel.className = 'orca-panel ' + proximityClass(mood) + ' orca-mode-' + orcaMode + (orcaMode === 'mute' ? ' orca-muted' : '');
+      document.getElementById('orcaAvatarImage').src =
+        (dyslexicMode ? ORCA_MASCOTS.dyslexic[orcaMode] : ORCA_MASCOTS.default[orcaMode]) || ORCA_MASCOTS.default.neutral;
+      document.getElementById('orcaAccessory').textContent = ORCA_TOOLS[orcaMode]?.badge || '';
+      document.getElementById('orcaBubble').textContent = orcaMode === 'mute' ? '...' : message;
+      syncOrcaTools();
+    }
+
+    function speakOrca(kind, mood, force) {
+      const resolvedMood = mood || currentOrcaMood || 'neutral';
+      if (orcaMode === 'mute') {
+        setOrcaState(resolvedMood, '...');
+        return;
+      }
+
+      const bank = ORCA_LINES[orcaMode][kind] || ORCA_LINES[orcaMode][resolvedMood] || ORCA_LINES.neutral.intrigued;
+      setOrcaState(resolvedMood, pick(bank));
+    }
+
+    function syncOrcaTools() {
+      document.querySelectorAll('.orca-tool').forEach(tool => {
+        const toolConfig = ORCA_TOOLS[tool.dataset.orcaTool];
+        tool.classList.toggle('active', toolConfig?.kind === 'mode' && tool.dataset.orcaTool === orcaMode);
+      });
+    }
+
+    function applyOrcaTool(toolName, forceMessage) {
+      const tool = ORCA_TOOLS[toolName];
+      if (!tool || tool.kind !== 'mode') return;
+      orcaMode = tool.mode;
+      localStorage.setItem('orcaMode', orcaMode);
+      if (orcaMode === 'mute') {
+        setOrcaState(currentOrcaMood, '...');
+        return;
+      }
+      const message = forceMessage || tool.bubble;
+      setOrcaState(currentOrcaMood, message);
+    }
+
+    function triggerEasterEgg(word) {
+      const normalized = String(word || '').trim().toLowerCase();
+      const layer = document.getElementById('easterEggLayer');
+      const shachi = document.getElementById('easterShachi');
+      const mathieu = document.getElementById('easterMathieu');
+      const constance = document.getElementById('easterConstance');
+      const kefir = document.getElementById('easterKefir');
+      const velo = document.getElementById('easterVelo');
+      const stluc = document.getElementById('easterStLuc');
+      const mullet = document.getElementById('easterMullet');
+      const voisin = document.getElementById('easterVoisin');
+
+      shachi.classList.remove('active');
+      mathieu.classList.remove('active');
+      constance.classList.remove('active');
+      kefir.classList.remove('active');
+      velo.classList.remove('active');
+      stluc.classList.remove('active');
+      mullet.classList.remove('active');
+      voisin.classList.remove('active');
+      layer.classList.remove('active');
+
+      let target = null;
+      if (normalized === 'shachi') target = shachi;
+      if (normalized === 'mathieu') target = mathieu;
+      if (normalized === 'constance') target = constance;
+      if (normalized === 'kefir') target = kefir;
+      if (normalized === 'velo' || normalized === 'vélo') target = velo;
+      if (normalized === 'st-luc' || normalized === 'stluc' || normalized === 'st luc') target = stluc;
+      if (normalized === 'mullet') target = mullet;
+      if (normalized === 'voisin') target = voisin;
+      if (!target) return;
+
+      if (target === kefir) {
+        buildKefirRain();
+      }
+
+      layer.classList.add('active');
+      target.classList.add('active');
+      setTimeout(() => {
+        target.classList.remove('active');
+        layer.classList.remove('active');
+      }, 3200);
+    }
+
+    function initOrcaDragAndDrop() {
+      const panel = document.getElementById('orcaPanel');
+      const tools = document.querySelectorAll('.orca-tool');
+
+      tools.forEach(tool => {
+        tool.addEventListener('dragstart', event => {
+          draggedOrcaTool = tool.dataset.orcaTool;
+          tool.classList.add('dragging');
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', draggedOrcaTool);
+        });
+
+        tool.addEventListener('dragend', () => {
+          draggedOrcaTool = null;
+          tool.classList.remove('dragging');
+          panel.classList.remove('drop-target');
+        });
+      });
+
+      panel.addEventListener('dragover', event => {
+        event.preventDefault();
+        panel.classList.add('drop-target');
+      });
+
+      panel.addEventListener('dragleave', event => {
+        if (!panel.contains(event.relatedTarget)) {
+          panel.classList.remove('drop-target');
+        }
+      });
+
+      panel.addEventListener('drop', event => {
+        event.preventDefault();
+        panel.classList.remove('drop-target');
+        const toolName = event.dataTransfer.getData('text/plain') || draggedOrcaTool;
+        const tool = ORCA_TOOLS[toolName];
+        if (!tool) return;
+        if (tool.kind === 'mode') {
+          applyOrcaTool(toolName);
+          return;
+        }
+          if (tool.kind === 'hint') {
+            if (toolName === 'golden-fish' && orcaMode === 'trashtalk') {
+              if (orcaMode !== 'mute') {
+              document.getElementById('orcaBubble').textContent = 'T’as cru j’étais une michto, pas de golden fish pour moi !!!';
+              }
+              return;
+            }
+          requestHint(tool.hintType);
+        }
+      });
+    }
+
+    function toggleHintPanel() {
+      const panel = document.getElementById('hintPanel');
+      panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function getBestGuess() {
+      if (!guesses.length) return null;
+      return guesses.reduce((best, guess) => {
+        if (!best) return guess;
+        if (guess.proximity.progress !== best.proximity.progress) {
+          return guess.proximity.progress > best.proximity.progress ? guess : best;
+        }
+        return guess.score > best.score ? guess : best;
+      }, null);
+    }
+
+    function requestHint(type) {
+      currentGameUsedHint = true;
+      const bestGuess = getBestGuess();
+      fetch('/hint', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          type,
+          best_rank: bestGuess ? bestGuess.rank : null,
+          guessed_words: guesses.map(g => g.word)
+        })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            showError(data.error);
+            return;
+          }
+          if (data.value && (type === 'better-word' || type === 'golden-fish')) {
+            document.getElementById('guessInput').placeholder = 'Indice : ' + data.value;
+          }
+          speakOrca(type, currentOrcaMood, true);
+          if (orcaMode !== 'mute') {
+            document.getElementById('orcaBubble').textContent = data.message;
+          }
+        })
+        .catch(() => showError('Erreur réseau.'));
+    }
+
+    function renderDifficulty(d) {
+      document.getElementById('dailyDifficulty').textContent =
+        'Difficulté\u00a0: ' + '⭐'.repeat(d) + '☆'.repeat(5 - d);
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMessage');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function hideError() {
+      document.getElementById('errorMessage').style.display = 'none';
+    }
+
+    // ─── Polling ─────────────────────────────────────────────────────────────
+    function pollStatus() {
+      fetch('/status')
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('progressBar').style.width = data.progress + '%';
+          document.getElementById('downloadDetail').textContent = data.detail || '';
+          if (data.phase === 'ready') {
+            activateGame();
+          } else if (data.phase === 'error') {
+            document.getElementById('downloadError').textContent = data.detail || 'Erreur inconnue.';
+            document.getElementById('downloadError').style.display = 'block';
+          } else {
+            setTimeout(pollStatus, 500);
+          }
+        })
+        .catch(() => setTimeout(pollStatus, 1000));
+    }
+
+    function activateGame() {
+      document.getElementById('downloadScreen').style.display = 'none';
+      document.getElementById('gameScreen').style.display    = 'block';
+      startTime = Date.now();
+      guessCounter = 0;
+      fetch('/daily-info')
+        .then(r => r.json())
+        .then(data => renderDifficulty(data.difficulty));
+      document.getElementById('guessInput').focus();
+      document.body.classList.toggle('dyslexic-mode', dyslexicMode);
+      document.getElementById('dyslexicToggle').textContent =
+        'Mode dyslexique : ' + (dyslexicMode ? 'ON' : 'OFF');
+      document.getElementById('dyslexicToggle').classList.toggle('active', dyslexicMode);
+      resetTimer();
+      currentGameUsedHint = false;
+      currentGameResolved = false;
+      updateGiveUpButton();
+      applyOrcaTool(orcaMode, 'Ola que tal');
+    }
+
+    function submitGuess(event) {
+      event.preventDefault();
+      const input = document.getElementById('guessInput');
+      const word  = input.value.trim();
+      if (!word) return;
+      input.value = '';
+      hideError();
+      dismissSuggestion();
+      submitWord(word);
+    }
+
+    function submitWord(word) {
+      triggerEasterEgg(word);
+      fetch('/guess', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({word})
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            if (data.error === 'inconnu') {
+              speakOrca('unknown', 'sick', true);
+            }
+            if (data.error === 'inconnu' && dyslexicMode) {
+              fetchSuggestion(word);
+            } else {
+              const msg = data.error === 'inconnu'
+                ? '"' + esc(word) + '" n\'est pas dans le vocabulaire.'
+                : data.error;
+              showError(msg);
+            }
+            return;
+          }
+          guesses.push({
+            word: data.word || word,
+            attempt: ++guessCounter,
+            score: data.score,
+            rank: data.rank ?? null,
+            win: data.win,
+            gaveUp: data.gave_up === true,
+            proximity: data.proximity,
+            progressAnimated: false,
+          });
+          guesses.sort((a, b) => {
+            if (b.proximity.progress !== a.proximity.progress) {
+              return b.proximity.progress - a.proximity.progress;
+            }
+            return b.score - a.score;
+          });
+          speakOrca(data.proximity.mood, data.proximity.mood, false);
+          updateGiveUpButton();
+          renderTable().then(() => {
+            if (data.win) showVictory();
+          });
+        })
+        .catch(() => showError('Erreur réseau.'));
+    }
+
+    function giveUp() {
+      fetch('/give-up', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            showError(data.error);
+            return;
+          }
+          guesses.push({
+            word: data.word,
+            attempt: ++guessCounter,
+            score: data.score,
+            rank: data.rank ?? null,
+            win: data.win,
+            gaveUp: true,
+            proximity: data.proximity,
+            progressAnimated: false,
+          });
+          guesses.sort((a, b) => {
+            if (b.proximity.progress !== a.proximity.progress) {
+              return b.proximity.progress - a.proximity.progress;
+            }
+            return b.score - a.score;
+          });
+          updateGiveUpButton();
+          if (orcaMode !== 'mute') {
+            document.getElementById('orcaBubble').textContent = 'Bah alors, on abandonne ??';
+          }
+          renderTable().then(() => {
+            showVictory();
+          });
+        })
+        .catch(() => showError('Erreur réseau.'));
+    }
+
+    function fetchSuggestion(word) {
+      fetch('/suggest', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({word})
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.suggestion) {
+            showSuggestion(data.suggestion);
+          } else {
+            showError('"' + esc(word) + '" n\'est pas dans le vocabulaire.');
+          }
+        })
+        .catch(() => showError('Erreur réseau.'));
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('guessTableBody');
+      const animations = [];
+      tbody.innerHTML = '';
+      for (const g of guesses) {
+        const tr = document.createElement('tr');
+        const moodClass = proximityClass(g.proximity.mood);
+        const shouldAnimate = g.progressAnimated !== true;
+        const progressValue = shouldAnimate ? 0 : g.proximity.progress;
+        tr.className = 'guess-row ' + moodClass;
+        tr.innerHTML =
+          '<td class="guess-number">' + g.attempt + '</td>' +
+          '<td class="guess-word">' + esc(g.word) + '</td>' +
+          '<td class="guess-proximity">' +
+            '<div class="proximity-header">' +
+              '<span class="proximity-value">' + (shouldAnimate ? '0%' : (formatProgress(g.proximity.progress, g.win) + '%')) + '</span>' +
+              '<span class="proximity-rank">' + esc(g.proximity.rank_label) + '</span>' +
+            '</div>' +
+            '<div class="proximity-bar">' +
+              '<div class="proximity-bar-fill" style="width:' + progressValue + '%"></div>' +
+            '</div>' +
+          '</td>' +
+          '<td class="guess-orca">' +
+            '<img class="orca-emoji" src="' + esc(PROXIMITY_ICONS[g.proximity.mood] || PROXIMITY_ICONS.sick) + '" alt="' + esc(g.proximity.label) + '" title="' + esc(g.proximity.label) + '">' +
+          '</td>' +
+          '<td class="guess-score">' + g.score.toFixed(2) + '</td>';
+        tbody.appendChild(tr);
+        if (shouldAnimate) {
+          animations.push(animateProgressReveal(tr, g));
+        }
+      }
+      return Promise.all(animations);
+    }
+
+    function showVictory() {
+      if (!currentGameResolved) {
+        currentGameResolved = true;
+      }
+      if (timerRunning) {
+        stopTimer();
+      }
+      document.getElementById('guessForm').style.display    = 'none';
+      updateReplayButton(true);
+      speakOrca('found', 'found', true);
+    }
+
+    function newGame() {
+      fetch('/new-game', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+          guesses = [];
+          guessCounter = 0;
+          startTime = Date.now();
+          resetTimer();
+          currentGameUsedHint = false;
+          currentGameResolved = false;
+          renderDifficulty(data.difficulty);
+          renderTable();
+          document.getElementById('guessForm').style.display    = 'flex';
+          document.getElementById('hintPanel').style.display = 'none';
+          document.getElementById('guessInput').placeholder = 'Proposez un mot…';
+          hideError();
+          updateGiveUpButton();
+          updateReplayButton(false);
+          document.getElementById('guessInput').focus();
+          setOrcaState('neutral', 'Ola que tal');
+        })
+        .catch(() => showError('Erreur réseau.'));
+    }
+
+    initOrcaDragAndDrop();
+    pollStatus();
+  </script>
+</body>
+</html>

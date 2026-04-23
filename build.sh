@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VENV=".venv_build"
+APP="Orquantix"
+ICON="build_assets/Orquantix.icns"
+
+echo "=== Creating build virtualenv ==="
+python3.11 -m venv "$VENV" 2>/dev/null || python3 -m venv "$VENV"
+# shellcheck disable=SC1090
+source "$VENV/bin/activate"
+
+echo "=== Installing dependencies ==="
+pip install --upgrade pip --quiet
+pip install flask gensim pyinstaller requests unidecode pywebview rapidfuzz --quiet
+
+echo "=== Running PyInstaller ==="
+pyinstaller \
+  --noconfirm \
+  --onedir \
+  --windowed \
+  --name "$APP" \
+  --icon "$ICON" \
+  --add-data "templates:templates" \
+  --add-data "static:static" \
+  --collect-all gensim \
+  --collect-all scipy \
+  --hidden-import "gensim.models.keyedvectors" \
+  --hidden-import "gensim.models.word2vec" \
+  --hidden-import "scipy.sparse.csgraph._validation" \
+  --collect-all pywebview \
+  --hidden-import "webview" \
+  main.py
+
+echo ""
+echo "=== Build complete ==="
+echo "    App: dist/${APP}.app"
+echo "    To use: open dist/${APP}.app  (or double-click in Finder)"

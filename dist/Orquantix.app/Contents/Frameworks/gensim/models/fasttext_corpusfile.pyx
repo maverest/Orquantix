@@ -1,0 +1,1 @@
+../../../Resources/gensim/models/fasttext_corpusfile.pyx

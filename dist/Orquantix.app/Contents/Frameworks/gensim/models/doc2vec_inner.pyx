@@ -1,0 +1,1 @@
+../../../Resources/gensim/models/doc2vec_inner.pyx

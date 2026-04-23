@@ -1,0 +1,1 @@
+../../../Resources/gensim/models/_fasttext_bin.py
