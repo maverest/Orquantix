@@ -1,1 +1,0 @@
-../../../../Resources/scipy/spatial/transform/_rigid_transform.py

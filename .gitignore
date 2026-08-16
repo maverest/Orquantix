@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+
+.venv/
+.venv_build/
+
+build/
+dist/
+
+.superpowers/
+.DS_Store

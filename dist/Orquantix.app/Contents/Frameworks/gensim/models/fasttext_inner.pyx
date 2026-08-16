@@ -1,1 +1,0 @@
-../../../Resources/gensim/models/fasttext_inner.pyx

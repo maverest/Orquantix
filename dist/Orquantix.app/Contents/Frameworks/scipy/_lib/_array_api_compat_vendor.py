@@ -1,1 +1,0 @@
-../../../Resources/scipy/_lib/_array_api_compat_vendor.py
