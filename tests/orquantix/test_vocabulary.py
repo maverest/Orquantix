@@ -115,3 +115,95 @@ def test_compute_difficulty_thresholds_ascending():
 
     assert len(thresholds) == 4
     assert thresholds == sorted(thresholds)
+
+
+# Fixture avec les seuils exacts pour tester les limites
+LEXIQUE_BOUNDARIES = (
+    "ortho\tlemme\tcgram\tgenre\tnombre\tfreqlemlivres\n"
+    # Limite inférieure mystère : 10.0 exact (inclus)
+    "mot_10_00\tmot_10_00\tNOM\tm\ts\t10.0\n"
+    # Juste en dessous de la limite inférieure mystère : 9.99 (exclu)
+    "mot_9_99\tmot_9_99\tNOM\tm\ts\t9.99\n"
+    # Limite supérieure mystère : 400.0 exact (exclu)
+    "mot_400_00\tmot_400_00\tNOM\tm\ts\t400.0\n"
+    # Juste en dessous de la limite supérieure mystère : 399.99 (inclus)
+    "mot_399_99\tmot_399_99\tNOM\tm\ts\t399.99\n"
+    # Limite inférieure indice : 5.0 exact (inclus)
+    "mot_5_00\tmot_5_00\tNOM\tm\ts\t5.0\n"
+    # Juste en dessous de la limite inférieure indice : 4.99 (exclu)
+    "mot_4_99\tmot_4_99\tNOM\tm\ts\t4.99\n"
+)
+
+
+@pytest.fixture
+def lexique_boundaries(tmp_path):
+    path = tmp_path / "boundaries.tsv"
+    path.write_text(LEXIQUE_BOUNDARIES, encoding="utf-8")
+    return str(path)
+
+
+def test_mystery_pool_lower_boundary_inclusive(lexique_boundaries):
+    """freqlemlivres == 10.0 doit être inclus dans le pool mystère."""
+    model_vocab = {"mot_10_00"}
+    pools = build_pools(lexique_boundaries, model_vocab)
+
+    assert "mot_10_00" in pools.mystery_words
+
+
+def test_mystery_pool_below_lower_boundary(lexique_boundaries):
+    """freqlemlivres == 9.99 doit être exclu du pool mystère."""
+    model_vocab = {"mot_9_99"}
+    pools = build_pools(lexique_boundaries, model_vocab)
+
+    assert "mot_9_99" not in pools.mystery_words
+
+
+def test_mystery_pool_upper_boundary_exclusive(lexique_boundaries):
+    """freqlemlivres == 400.0 doit être exclu du pool mystère (limite supérieure exclusive)."""
+    model_vocab = {"mot_400_00"}
+    pools = build_pools(lexique_boundaries, model_vocab)
+
+    assert "mot_400_00" not in pools.mystery_words
+
+
+def test_mystery_pool_below_upper_boundary(lexique_boundaries):
+    """freqlemlivres == 399.99 doit être inclus dans le pool mystère."""
+    model_vocab = {"mot_399_99"}
+    pools = build_pools(lexique_boundaries, model_vocab)
+
+    assert "mot_399_99" in pools.mystery_words
+
+
+def test_hint_pool_lower_boundary_inclusive(lexique_boundaries):
+    """freqlemlivres == 5.0 doit être inclus dans le pool d'indice."""
+    model_vocab = {"mot_5_00"}
+    pools = build_pools(lexique_boundaries, model_vocab)
+
+    assert "mot_5_00" in pools.hint_words
+
+
+def test_hint_pool_below_lower_boundary(lexique_boundaries):
+    """freqlemlivres == 4.99 doit être exclu du pool d'indice."""
+    model_vocab = {"mot_4_99"}
+    pools = build_pools(lexique_boundaries, model_vocab)
+
+    assert "mot_4_99" not in pools.hint_words
+
+
+def test_boundary_interaction_400_in_hint_not_mystery(lexique_boundaries):
+    """Un mot à 400.0 : exclu du mystère mais inclus dans les indices."""
+    model_vocab = {"mot_400_00"}
+    pools = build_pools(lexique_boundaries, model_vocab)
+
+    assert "mot_400_00" not in pools.mystery_words  # exclu du mystère
+    assert "mot_400_00" in pools.hint_words         # inclus dans les indices
+
+
+def test_normalize_strips_diacritics():
+    """normalize() doit enlever les accents et les accents courants."""
+    assert normalize("naïf") == "naif"
+
+
+def test_normalize_expands_ligatures():
+    """normalize() doit développer les ligatures (transformation unidecode)."""
+    assert normalize("cœur") == "coeur"
