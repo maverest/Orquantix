@@ -73,6 +73,46 @@ def test_build_scale_handles_short_neighbour_lists():
     assert scale.floor < scale.top1000
 
 
+def test_build_scale_with_single_neighbour():
+    """Garde-fou : top1000 == maximum doit être corrigé."""
+    neighbours = [("w0", 0.8)]
+
+    scale = build_temperature_scale(_FakeModel(), "cible", neighbours)
+
+    # Les trois ancres doivent être strictement croissantes.
+    assert scale.floor < scale.top1000 < scale.maximum
+
+
+def test_build_scale_guards_do_not_violate_each_other():
+    """Contre-exemple : deuxième garde-fou invalide le premier.
+
+    Entrées : floor=0.9, top1000=1.0, maximum=1.0
+    - Première garde : 0.9 < 1.0 → pas d'action
+    - Deuxième garde : 1.0 >= 1.0 → top1000 = 0.5
+    - Résultat : floor=0.9 > top1000=0.5 → invariant violé
+    """
+    neighbours = [("w0", 1.0)]
+    model = _FakeModelWithMedian(median=0.9)
+
+    scale = build_temperature_scale(model, "cible", neighbours)
+
+    # Les trois ancres doivent rester strictement croissantes.
+    assert scale.floor < scale.top1000, f"floor={scale.floor} should be < top1000={scale.top1000}"
+    assert scale.top1000 < scale.maximum, f"top1000={scale.top1000} should be < maximum={scale.maximum}"
+
+
+def test_temperature_is_monotonic_on_degenerate_scale():
+    """Un échelle dégénérée qui a passé les garde-fou reste utilisable."""
+    neighbours = [("w0", 1.0)]
+    model = _FakeModelWithMedian(median=0.9)
+
+    scale = build_temperature_scale(model, "cible", neighbours)
+
+    # temperature() doit retourner des valeurs croissantes monotoniquement.
+    values = [temperature(scale, c) for c in [0.0, 0.5, 0.8, 0.99, 1.0]]
+    assert values == sorted(values), f"Values {values} are not monotonic"
+
+
 class _FakeModel:
     """Modèle minimal : expose seulement ce que build_temperature_scale lit."""
 
@@ -86,3 +126,19 @@ class _FakeModel:
     def get_normed_vectors(self):
         import numpy as np
         return np.full((1000, 4), 0.02, dtype=np.float32)
+
+
+class _FakeModelWithMedian(_FakeModel):
+    """Modèle fake qui retourne une médiane spécifique via dot product."""
+
+    def __init__(self, median: float) -> None:
+        super().__init__()
+        self.median = median
+
+    def get_normed_vectors(self):
+        import numpy as np
+        # Vectors where dot product gives the desired median similarity.
+        # If v = [sqrt(median), 0, 0, 0], then v @ v = median.
+        vecs = np.zeros((1001, 4), dtype=np.float32)
+        vecs[:, 0] = np.sqrt(self.median)
+        return vecs

@@ -41,10 +41,11 @@ def build_temperature_scale(model, target: str, neighbours: list[tuple[str, floa
     floor = _median_similarity(model, target)
 
     # Garde-fou : les ancres doivent rester strictement croissantes.
-    if floor >= top1000:
-        floor = top1000 * 0.25
+    # Réparer de haut en bas : fixer top1000 d'abord, puis floor.
     if top1000 >= maximum:
         top1000 = maximum * 0.5
+    if floor >= top1000:
+        floor = top1000 * 0.25
 
     return TemperatureScale(floor=floor, top1000=top1000, maximum=maximum)
 
