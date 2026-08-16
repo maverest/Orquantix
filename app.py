@@ -11,7 +11,6 @@ from games.orquantix.engine import (
     get_better_hint_word,
     get_daily_word,
     get_difficulty,
-    get_proximity_feedback,
     get_score,
     get_strong_hint_word,
     get_top1000,
@@ -23,6 +22,11 @@ from games.orquantix.vocabulary import (
     normalize,
 )
 from rapidfuzz import process as fuzz_process
+
+
+# Provisoire — remplacé en Task 8 par le blueprint.
+def get_proximity_feedback(rank, found=False):
+    return {"rank": rank, "found": found}
 
 
 class AppState:

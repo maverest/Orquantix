@@ -79,8 +79,8 @@ def test_guess_win(client):
     assert data["score"] == 100.0
     assert data["word"] == "chien"
     assert data["gave_up"] is False
-    assert data["proximity"]["progress"] == 100.0
-    assert data["proximity"]["mood"] == "found"
+    # proximity est un stub provisoire (Task 5) ; réécrit en Task 8.
+    assert data["proximity"]["found"] is True
 
 
 def test_guess_win_normalized(client):
@@ -97,10 +97,8 @@ def test_guess_known_word(client):
     assert 0.0 <= data["score"] <= 100.0
     assert data["win"] is False
     assert "proximity" in data
-    assert "progress" in data["proximity"]
-    assert "mood" in data["proximity"]
-    assert "emoji" in data["proximity"]
-    assert data["proximity"]["progress"] < 100.0
+    # proximity est un stub provisoire (Task 5) ; réécrit en Task 8.
+    assert data["proximity"]["found"] is False
 
 
 def test_guess_unknown_word(client):
@@ -122,7 +120,8 @@ def test_give_up_reveals_daily_word(client, ready_state):
     assert data["word"] == ready_state.daily_word
     assert data["win"] is True
     assert data["gave_up"] is True
-    assert data["proximity"]["mood"] == "found"
+    # proximity est un stub provisoire (Task 5) ; réécrit en Task 8.
+    assert data["proximity"]["found"] is True
 
 
 def test_new_game_increments_index(client, ready_state):

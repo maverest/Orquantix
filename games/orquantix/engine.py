@@ -1,7 +1,85 @@
 import hashlib
+from dataclasses import dataclass
 from datetime import date
 
+import numpy as np
 from gensim.models import KeyedVectors
+
+FOUND_TEMPERATURE = 100.0
+TOP1000_TEMPERATURE = 50.0
+BEST_NEIGHBOUR_TEMPERATURE = 99.0
+
+
+@dataclass(frozen=True)
+class TemperatureScale:
+    """Les trois ancres calibrant la température pour un mot mystère donné.
+
+    Le seuil du top 1000 varie fortement d'une cible à l'autre — 0.155 pour
+    « confiture », 0.196 pour « guerre » — donc une échelle fixe mentirait.
+    """
+
+    floor: float
+    top1000: float
+    maximum: float
+
+
+def get_neighbours(model, target: str, topn: int = 1000) -> list[tuple[str, float]]:
+    """Les voisins les plus proches, du plus proche au plus lointain."""
+    limit = min(topn, len(model.key_to_index) - 1)
+    return model.most_similar(target, topn=limit)
+
+
+def build_temperature_scale(model, target: str, neighbours: list[tuple[str, float]]) -> TemperatureScale:
+    """Calibre l'échelle sur la cible.
+
+    Le plancher est la médiane des similarités de la cible contre tout le
+    vocabulaire : 91 % des mots vivent sous 0.10, donc sans plancher la
+    température serait écrasée en bas.
+    """
+    maximum = neighbours[0][1]
+    top1000 = neighbours[-1][1]
+    floor = _median_similarity(model, target)
+
+    # Garde-fou : les ancres doivent rester strictement croissantes.
+    if floor >= top1000:
+        floor = top1000 * 0.25
+    if top1000 >= maximum:
+        top1000 = maximum * 0.5
+
+    return TemperatureScale(floor=floor, top1000=top1000, maximum=maximum)
+
+
+def _median_similarity(model, target: str) -> float:
+    vectors = model.get_normed_vectors()
+    target_vector = vectors[model.key_to_index[target]]
+    similarities = vectors @ target_vector
+    return float(np.median(similarities))
+
+
+def temperature(scale: TemperatureScale, similarity: float, *, found: bool = False) -> float:
+    """Similarité cosinus → degrés.
+
+    0°   = aucun rapport
+    50°  = entrée dans le top 1000
+    99°  = le voisin le plus proche
+    100° = trouvé
+    """
+    if found:
+        return FOUND_TEMPERATURE
+
+    if similarity <= scale.floor:
+        return 0.0
+
+    if similarity < scale.top1000:
+        span = scale.top1000 - scale.floor
+        return round(TOP1000_TEMPERATURE * (similarity - scale.floor) / span, 2)
+
+    span = scale.maximum - scale.top1000
+    if span <= 0:
+        return BEST_NEIGHBOUR_TEMPERATURE
+
+    climbed = (BEST_NEIGHBOUR_TEMPERATURE - TOP1000_TEMPERATURE) * (similarity - scale.top1000) / span
+    return round(min(TOP1000_TEMPERATURE + climbed, BEST_NEIGHBOUR_TEMPERATURE), 2)
 
 
 ORCA_EMOJIS = {
@@ -58,16 +136,6 @@ def get_top1000(model: KeyedVectors, target: str) -> dict[str, int]:
     return {word: rank + 1 for rank, (word, _) in enumerate(neighbors)}
 
 
-def get_progress_percent(rank: int | None, found: bool = False) -> float:
-    if found:
-        return 100.0
-    if rank is None or rank < 1 or rank > 1000:
-        return 0.0
-    base_progress = (1001 - rank) / 1000
-    progress = (base_progress ** 3.4) * 100
-    return round(min(progress, 99.99), 2)
-
-
 def get_orca_mood(rank: int | None, found: bool = False) -> str:
     if found:
         return "found"
@@ -115,20 +183,6 @@ def get_rank_label(rank: int | None, found: bool = False) -> str:
     if rank is None or rank > 1000:
         return "Hors top 1000"
     return f"Voisin #{rank}"
-
-
-def get_proximity_feedback(rank: int | None, found: bool = False) -> dict[str, str | float | bool | None]:
-    mood = get_orca_mood(rank, found)
-    return {
-        "progress": get_progress_percent(rank, found),
-        "rank": rank,
-        "mood": mood,
-        "beast": get_orca_beast_label(rank, found),
-        "label": get_proximity_label(rank, found),
-        "emoji": ORCA_EMOJIS[mood],
-        "rank_label": get_rank_label(rank, found),
-        "found": found,
-    }
 
 
 def get_better_hint_word(
