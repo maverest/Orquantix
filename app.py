@@ -8,13 +8,12 @@ from flask import Flask, jsonify, render_template, request
 
 from downloader import download_all, MODEL_FILENAME, LEXIQUE_FILENAME
 from games.orquantix.engine import (
-    get_better_hint_word,
     get_daily_word,
     get_difficulty,
     get_score,
-    get_strong_hint_word,
     get_top1000,
 )
+from games.orquantix.hints import better_hint_word, strong_hint_word
 from games.orquantix.vocabulary import (
     build_norm_map,
     build_pools,
@@ -207,9 +206,12 @@ def create_app(state: AppState) -> Flask:
         }
 
         if hint_type == "golden-fish":
-            hinted_word = get_strong_hint_word(
+            # TODO(Task 8): filtrer sur le vrai pool d'indices (pools.hint_words),
+            # pas encore câblé sur AppState.
+            hinted_word = strong_hint_word(
                 top1000,
-                guessed_words=guessed_words,
+                frozenset(top1000),
+                guessed_words,
             )
             if hinted_word is None:
                 return jsonify({
@@ -224,7 +226,9 @@ def create_app(state: AppState) -> Flask:
                 "value": hinted_word,
             })
 
-        hinted_word = get_better_hint_word(top1000, best_rank, guessed_words=guessed_words)
+        # TODO(Task 8): filtrer sur le vrai pool d'indices (pools.hint_words),
+        # pas encore câblé sur AppState.
+        hinted_word = better_hint_word(top1000, frozenset(top1000), best_rank, guessed_words)
         if hinted_word is None:
             return jsonify({
                 "type": hint_type,

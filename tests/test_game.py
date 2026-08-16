@@ -83,23 +83,3 @@ def test_get_top1000_ranks_contiguous():
     ranks = sorted(top.values())
     assert ranks == list(range(1, len(ranks) + 1))
 
-
-def test_get_better_hint_word_returns_closer_unused_candidate():
-    from games.orquantix.engine import get_better_hint_word
-
-    top1000 = {"a": 900, "b": 700, "c": 500, "d": 250}
-    hinted = get_better_hint_word(top1000, 700, guessed_words={"c"})
-    assert hinted == "d"
-
-
-def test_get_better_hint_word_returns_none_for_best_rank():
-    from games.orquantix.engine import get_better_hint_word
-
-    assert get_better_hint_word({"a": 1}, 1) is None
-
-
-def test_get_strong_hint_word_prefers_top_rank():
-    from games.orquantix.engine import get_strong_hint_word
-
-    top1000 = {"a": 80, "b": 12, "c": 4}
-    assert get_strong_hint_word(top1000, guessed_words={"c"}) == "b"
