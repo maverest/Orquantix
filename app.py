@@ -7,7 +7,7 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request
 
 from downloader import download_all, MODEL_FILENAME, LEXIQUE_FILENAME
-from game import (
+from games.orquantix.engine import (
     get_better_hint_word,
     get_daily_word,
     get_difficulty,
@@ -16,7 +16,7 @@ from game import (
     get_strong_hint_word,
     get_top1000,
 )
-from vocabulary import (
+from games.orquantix.vocabulary import (
     build_norm_map,
     compute_difficulty_thresholds,
     filter_eligible_words,

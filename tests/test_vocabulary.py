@@ -1,6 +1,6 @@
 import pytest
 from tests.conftest import LEXIQUE_TSV, MODEL_VOCAB, make_mock_model
-from vocabulary import (
+from games.orquantix.vocabulary import (
     normalize,
     build_norm_map,
     filter_eligible_words,

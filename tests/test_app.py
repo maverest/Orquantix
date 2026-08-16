@@ -1,7 +1,7 @@
 import pytest
 from tests.conftest import make_mock_model, MODEL_VOCAB
-from vocabulary import build_norm_map, compute_difficulty_thresholds
-from game import get_top1000
+from games.orquantix.vocabulary import build_norm_map, compute_difficulty_thresholds
+from games.orquantix.engine import get_top1000
 from app import AppState, create_app
 
 
