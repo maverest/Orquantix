@@ -1,4 +1,5 @@
 import gzip
+import random
 import struct
 from pathlib import Path
 
@@ -9,6 +10,15 @@ from games.orquantix.dictionary import (
     clean_definition,
     fold,
     load_index,
+)
+from games.orquantix.dictionary import (
+    _GRAMMAR_MARKER,
+    _LEADING_ALT_HEADWORD,
+    _LEADING_CONNECTIVE,
+    _LEADING_JUNCTION,
+    _LEADING_PARENS,
+    _LEADING_SENSE,
+    _PHONETIC_PAREN,
 )
 
 REAL_DIR = Path.home() / "Library" / "Application Support" / "Orquantix"
@@ -157,6 +167,80 @@ def test_clean_definition_strips_chained_leading_parentheses():
     assert "1°" not in cleaned
 
 
+# Les cinq tests suivants couvrent la deuxième passe de correction (finding
+# "Critical" : des transcriptions phonétiques de la famille du mot cible
+# survivaient dans le rendu final sur de vraies entrées). Chacun isole une
+# combinaison de structure de tête trouvée en vrai, pas seulement les mots
+# du rapport de finding — le défaut général était que le nettoyeur de tête
+# ne consommait qu'une chaîne figée (parenthèse, marqueur grammatical,
+# jonction) et s'arrêtait dès qu'un autre type de jeton structurel
+# apparaissait en tête.
+
+
+def test_clean_definition_strips_leading_alternate_headword_with_own_phonetic():
+    # "ogre" : la forme féminine alternative "OGRESSE" et sa propre
+    # parenthèse phonétique se trouvent entre la première parenthèse et le
+    # marqueur grammatical — le nettoyeur de tête doit les avaler aussi, pas
+    # seulement la première parenthèse rencontrée.
+    raw = "(o-gr'), OGRESSE (o-grè-s'), s. m. et f. 1° Espèce de monstre."
+    cleaned = clean_definition(raw, "ogre")
+
+    assert cleaned == "Espèce de monstre."
+    assert "o-grè-s" not in cleaned
+    assert "OGRESSE" not in cleaned
+
+
+def test_clean_definition_strips_connective_before_alternate_headword():
+    # "escarbit" : le connecteur "ou" précède la variante alternative et sa
+    # parenthèse phonétique — sans ce connecteur reconnu comme structurel,
+    # la boucle de nettoyage de tête atteint un faux point fixe trop tôt.
+    raw = "(è-skar-bit'), s. m. ou ESCARBITE (è-skar-bi-t'), s. f. Terme de marine."
+    cleaned = clean_definition(raw, "escarbit")
+
+    assert cleaned == "Terme de marine."
+    assert "è-skar-bi-t" not in cleaned
+    assert "ESCARBITE" not in cleaned
+
+
+def test_clean_definition_strips_leading_supplement_sense_marker():
+    # Une entrée de supplément peut commencer directement par son propre
+    # numéro de sens ("2." — point, pas le signe degré "°" du corps
+    # principal) suivi du mot-vedette et de sa parenthèse phonétique.
+    raw = "2. TROQUET (tro-kè), s. m. Nom vulgaire du maïs."
+    cleaned = clean_definition(raw, "troquet")
+
+    assert cleaned == "Nom vulgaire du maïs."
+    assert "tro-kè" not in cleaned
+    assert "TROQUET" not in cleaned
+
+
+def test_clean_definition_strips_phonetic_parenthesis_anywhere_in_text():
+    # Le filet de sécurité indépendant : une parenthèse de forme phonétique
+    # qui ne se trouve PAS en tête (ex. après une bannière de supplément au
+    # milieu du texte, cas réel de "troquet") doit quand même sauter. Le
+    # nettoyeur de tête, par construction, ne regarde qu'en position 0 et ne
+    # peut pas voir celle-ci.
+    raw = (
+        "Terme de couvreur. Chevalet du comble SUPPLÉMENT AU DICTIONNAIRE "
+        "2. TROQUET (tro-kè), s. m. Nom vulgaire du maïs."
+    )
+    cleaned = clean_definition(raw, "troquet")
+
+    assert "tro-kè" not in cleaned
+    assert "Terme de couvreur" in cleaned
+
+
+def test_clean_definition_masks_irregular_man_men_plural():
+    # "yeoman"/"yeomen" : le pluriel anglais irrégulier fait diverger le mot
+    # exactement dans la fenêtre du préfixe utilisée par le masquage normal
+    # ("yeoma" vs "yeome"), qui échappe donc au test startswith habituel.
+    raw = "au pluriel YEOMEN (iomèn), s. m. Membre de la yeomanry. Les yeomen."
+    cleaned = clean_definition(raw, "yeoman")
+
+    assert "yeomen" not in cleaned.lower()
+    assert "iomèn" not in cleaned
+
+
 def test_littre_lookup_returns_none_for_absent_word(tmp_path):
     idx = tmp_path / "x.idx"
     idx.write_bytes(b"CONFITURE\x00" + struct.pack(">II", 0, 10))
@@ -197,3 +281,88 @@ def test_real_littre_never_leaks_the_word():
         assert definition is not None, word
         assert word not in definition.lower(), f"{word} fuite dans sa propre définition"
         assert not definition.startswith("("), word
+
+
+# Le test suivant est le vrai livrable de la deuxième passe de correction :
+# la vérification, dans les deux passes précédentes, ne portait que sur une
+# poignée de mots choisis à la main, ce qui a laissé passer le défaut deux
+# fois de suite. Ce test balaie un échantillon déterministe et substantiel
+# de vraies entrées Littré (échantillonnage aléatoire à graine fixe sur les
+# ~93 000 entrées de l'index réel, sans jamais toutes les traiter) et
+# affirme l'invariant central du module directement, plutôt que sur des
+# exemples choisis à l'avance :
+#   - aucune parenthèse de forme phonétique ne doit subsister nulle part
+#     dans le texte nettoyé (filet indépendant, cf. _PHONETIC_PAREN) ;
+#   - aucun marqueur structurel de tête (parenthèse, marqueur grammatical,
+#     jonction, connecteur, mot-vedette alternatif, marqueur de sens) ne
+#     doit subsister en tête du texte nettoyé ;
+#   - aucun jeton du texte nettoyé ne doit être, une fois replié, strictement
+#     égal au mot cible replié (aucune fuite littérale du mot-vedette).
+_REAL_SWEEP_SEED = 20260816
+_REAL_SWEEP_SAMPLE_SIZE = 8000
+
+_LEADING_STRUCTURE_PATTERNS = (
+    _LEADING_PARENS,
+    _GRAMMAR_MARKER,
+    _LEADING_JUNCTION,
+    _LEADING_CONNECTIVE,
+    _LEADING_ALT_HEADWORD,
+    _LEADING_SENSE,
+)
+
+
+@pytest.mark.skipif(not REAL_AVAILABLE, reason="Littré non téléchargé")
+def test_real_littre_sweep_has_no_residual_leak():
+    littre = Littre(REAL_DIR / "XMLittre.idx", REAL_DIR / "XMLittre.dict.dz")
+    index = load_index(REAL_DIR / "XMLittre.idx")
+
+    keys = sorted(index)
+    sample = random.Random(_REAL_SWEEP_SEED).sample(
+        keys, min(_REAL_SWEEP_SAMPLE_SIZE, len(keys))
+    )
+
+    phonetic_leaks = []
+    leading_leaks = []
+    headword_leaks = []
+
+    for key in sample:
+        cleaned = littre.lookup(key)
+        if cleaned is None:
+            continue
+
+        if _PHONETIC_PAREN.search(cleaned):
+            phonetic_leaks.append((key, cleaned))
+
+        if any(pattern.match(cleaned) for pattern in _LEADING_STRUCTURE_PATTERNS):
+            leading_leaks.append((key, cleaned))
+
+        # Vérification bonus, au-delà de ce que ce correctif demande : aucun
+        # jeton du texte nettoyé ne doit être, replié, strictement égal au
+        # mot-vedette replié. Exclut les ~0,8 % de clés d'index contenant une
+        # apostrophe ("S'ABSTENIR", "D'EMBLEE" ...) : le tokenizer de
+        # _mask_family traite l'apostrophe comme une frontière dure (ce qui
+        # est nécessaire ailleurs, ex. "qu'avant-hier" doit isoler "avant-
+        # hier" comme un jeton propre), ce qui fait qu'un mot-vedette
+        # contenant lui-même une apostrophe n'est jamais reconnu par le
+        # préfixe replié qui, lui, la conserve. C'est un défaut préexistant,
+        # distinct de la structure de tête (root cause de ce correctif), qui
+        # touche des entrées de type locution/verbe pronominal improbables
+        # comme mot mystère du jeu — documenté, non corrigé ici.
+        if "'" not in key:
+            folded_target = fold(key)
+            folded_tokens = fold(cleaned).replace("-", " ").split()
+            if folded_target in folded_tokens:
+                headword_leaks.append((key, cleaned))
+
+    assert not phonetic_leaks, (
+        f"{len(phonetic_leaks)}/{len(sample)} parenthèse(s) phonétique(s) "
+        f"résiduelle(s), ex. : {phonetic_leaks[:5]}"
+    )
+    assert not leading_leaks, (
+        f"{len(leading_leaks)}/{len(sample)} structure(s) de tête "
+        f"résiduelle(s), ex. : {leading_leaks[:5]}"
+    )
+    assert not headword_leaks, (
+        f"{len(headword_leaks)}/{len(sample)} fuite(s) littérale(s) du "
+        f"mot-vedette, ex. : {headword_leaks[:5]}"
+    )
