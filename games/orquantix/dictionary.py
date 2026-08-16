@@ -40,9 +40,16 @@ _GRAMMAR_MARKER = re.compile(
     r"^\s*(s\.\s*[mf]\.(\s*et\s*f\.)?|adj\.|v\.\s*[an]\.|adv\.)\s*",
     re.IGNORECASE,
 )
+# Jonction entre deux groupes chaînés en tête d'entrée, ex. les entrées à
+# double genre : "(le mâle), s. f. (la femelle)" — la virgule qui sépare
+# les deux groupes bloque sinon les regex ancrées suivantes.
+_LEADING_JUNCTION = re.compile(r"^\s*[,;]\s*")
 _SECOND_SENSE = re.compile(r"\s*2°")
 _FIRST_SENSE_MARKER = re.compile(r"^\s*1°\s*")
-_CITATION = re.compile(r",?\s*[A-ZÀ-Ý]{4,}\.[^.]*\.")
+# Citation Littré : ", AUTEUR" suivi soit d'un point d'abréviation
+# ("CHATEAUBR."), soit directement de la référence ("BUFFON, Chat..",
+# nom complet non abrégé) — jusqu'au(x) point(s) qui la terminent.
+_CITATION = re.compile(r",\s*[A-ZÀ-Ý]{4,}\.?(?:,\s*[^.]*)?\.+")
 _WHITESPACE = re.compile(r"\s+")
 
 
@@ -85,13 +92,15 @@ def clean_definition(raw: str, target: str, max_chars: int = 220) -> str:
 
     # La transcription phonétique épelle le mot : elle doit sauter. Certaines
     # entrées (ex. "chien") enchaînent plusieurs groupes parenthèse + marqueur
-    # grammatical ("(chiin) s. m. (le mâle), s. f. (la femelle)") : on boucle
-    # jusqu'à stabilité pour tous les retirer, pas seulement le premier.
+    # grammatical ("(chiin) s. m. (le mâle), s. f. (la femelle)"), reliés par
+    # une virgule de jonction : on boucle jusqu'à stabilité pour retirer tous
+    # les groupes et les virgules qui les séparent, pas seulement le premier.
     previous = None
     while text != previous:
         previous = text
         text = _LEADING_PARENS.sub("", text)
         text = _GRAMMAR_MARKER.sub("", text)
+        text = _LEADING_JUNCTION.sub("", text)
 
     text = _SECOND_SENSE.split(text)[0]
     text = _FIRST_SENSE_MARKER.sub("", text)

@@ -1,3 +1,4 @@
+import gzip
 import struct
 from pathlib import Path
 
@@ -135,20 +136,30 @@ def test_clean_definition_masks_hyphenated_compound_target():
 def test_clean_definition_strips_chained_leading_parentheses():
     # Entrées à double genre (ex. "chien") : une parenthèse phonétique,
     # un marqueur grammatical, puis une deuxième parenthèse ("(le mâle)")
-    # avant le second marqueur grammatical. Il faut boucler, pas s'arrêter
-    # après le premier groupe parenthèse+marqueur.
-    raw = "(chiin, chièn') s. m. (le mâle), s. f. (la femelle) Quadrupède domestique."
+    # avant le second marqueur grammatical, elle-même suivie d'une virgule
+    # de jonction ("(le mâle), s. f. …") qui bloquait les regex ancrées
+    # suivantes une fois le premier groupe consommé. Il faut boucler et
+    # avaler cette virgule, pas s'arrêter après le premier groupe.
+    raw = (
+        "(chiin, chièn') s. m. (le mâle), s. f. (la femelle) "
+        "1° Quadrupède domestique."
+    )
     cleaned = clean_definition(raw, "chien")
 
+    # Assertions sur le contenu réel, pas seulement l'absence de "(" en tête :
+    # une version cassée peut très bien commencer par une virgule et passer
+    # un test qui ne vérifie que "not startswith('(')".
+    assert cleaned.startswith("Quadrupède domestique")
     assert not cleaned.startswith("(")
     assert "chiin" not in cleaned
-    assert "Quadrupède domestique" in cleaned
+    assert "s. f." not in cleaned
+    assert "(la femelle)" not in cleaned
+    assert "1°" not in cleaned
 
 
 def test_littre_lookup_returns_none_for_absent_word(tmp_path):
     idx = tmp_path / "x.idx"
     idx.write_bytes(b"CONFITURE\x00" + struct.pack(">II", 0, 10))
-    import gzip
 
     dict_path = tmp_path / "x.dict.dz"
     with gzip.open(dict_path, "wb") as f:
@@ -162,8 +173,6 @@ def test_littre_lookup_returns_none_for_absent_word(tmp_path):
 
 
 def test_littre_lookup_cleans_the_entry(tmp_path):
-    import gzip
-
     body = "(kon-fi-tu-r') s. f. Fruits cuits avec du sucre.".encode("utf-8")
     dict_path = tmp_path / "y.dict.dz"
     with gzip.open(dict_path, "wb") as f:
