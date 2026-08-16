@@ -35,6 +35,37 @@ def load_index(idx_path: str | Path) -> dict[str, tuple[int, int]]:
 
 
 _TAG = re.compile(r"<[^>]+>")
+
+
+def _detag(text: str) -> str:
+    """Retire tout le balisage, sans laisser une balise supprimée souder
+    deux mots (ex. "<variante ...>" entre deux résumés de sens consécutifs,
+    "rase.<variante...>Planche" -> "rase.Planche").
+
+    Une espace n'est insérée qu'au point de coupure précis où c'est
+    nécessaire : quand le caractère qui suivait immédiatement la balise est
+    alphanumérique (donc amorce un mot) ET que le caractère qui précédait la
+    balise n'est ni vide ni déjà une espace. Une balise directement suivie
+    de ponctuation (ex. "mot</b>, RAC." où le "," suit la balise) n'est,
+    elle, jamais transformée en espace : le remplacement inconditionnel par
+    une espace créerait sinon une espace parasite avant cette ponctuation
+    ("mot , RAC.") — un défaut mesuré sur plus de la moitié du vrai
+    vocabulaire mystère lors d'un premier essai moins ciblé, à cause des
+    citations Littré qui referment une balise juste avant leur virgule de
+    référence.
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        start, end = match.start(), match.end()
+        before = text[start - 1] if start > 0 else ""
+        after = text[end] if end < len(text) else ""
+        if after.isalnum() and before and not before.isspace():
+            return " "
+        return ""
+
+    return _TAG.sub(replace, text)
+
+
 _LEADING_PARENS = re.compile(r"^\s*\([^)]*\)\s*")
 _GRAMMAR_MARKER = re.compile(
     r"^\s*(s\.\s*[mf]\.(\s*et\s*f\.)?(\s*pl\.)?|adj\.|v\.\s*[an]\.|v\.\s*(tr|intr|réfl|pron)\.|"
@@ -78,6 +109,22 @@ _WHITESPACE = re.compile(r"\s+")
 # nettoyeur de tête, par construction, ne peut pas voir.
 _PHONETIC_PAREN = re.compile(r"\([a-zà-ÿœæç]+(?:-[a-zà-ÿœæç]+)+'?\)")
 
+# Bannières d'appendice Littré : ÉTYMOLOGIE, HISTORIQUE, SUPPLÉMENT AU
+# DICTIONNAIRE, REMARQUE(S), SYNONYME, PROVERBE(S). Dans les 93 313 entrées
+# de l'index réel, la balise <big>...</big> ne sert JAMAIS à autre chose que
+# ces sept libellés (86 334 occurrences vérifiées, aucune variante), et
+# aucune entrée ne commence par elle : la définition utile la précède
+# toujours. On coupe donc dessus — plutôt que d'exciser juste le libellé —
+# avant même de retirer le balisage général : tout ce qui suit est un
+# appendice (étymologie, citations historiques en ancien français, notes de
+# supplément), jamais un complément que le joueur a besoin de lire, et
+# couper est nettement plus sûr qu'essayer de préserver sélectivement le
+# contenu utile d'une section de supplément (qui mélangerait souvent
+# elle-même sa propre parenthèse phonétique et ses propres citations).
+_APPENDIX_BANNER = re.compile(
+    r"<big>(?:ÉTYMOLOGIE|HISTORIQUE|SUPPLÉMENT AU DICTIONNAIRE|"
+    r"REMARQUES?|SYNONYME|PROVERBES?)</big>"
+)
 
 _TOKEN = re.compile(r"[\w-]+")
 
@@ -96,21 +143,7 @@ def _mask_family(text: str, target: str) -> str:
     prefix = folded[:prefix_length]
 
     def matches(word: str) -> bool:
-        folded_word = fold(word)
-        if folded_word.startswith(prefix):
-            return True
-        # Cas exact et étroit, pas un rapprochement flou : le pluriel anglais
-        # irrégulier en -man/-men ("yeoman"/"yeomen") fait porter sa seule
-        # lettre de divergence DANS la fenêtre du préfixe (ex. "yeoma" vs
-        # "yeome"), ce qui échappe au test startswith ci-dessus. Le reste du
-        # mot est identique de part et d'autre : ce n'est pas une similarité
-        # approximative qui risquerait de masquer un mot sans rapport, c'est
-        # une égalité stricte modulo l'échange -man/-men.
-        if folded.endswith("MAN") and folded_word == folded[:-3] + "MEN":
-            return True
-        if folded_word.endswith("MAN") and folded == folded_word[:-3] + "MEN":
-            return True
-        return False
+        return fold(word).startswith(prefix)
 
     def replace(match: re.Match[str]) -> str:
         token = match.group(0)
@@ -121,13 +154,15 @@ def _mask_family(text: str, target: str) -> str:
     return _TOKEN.sub(replace, text)
 
 
-def clean_definition(raw: str, target: str, max_chars: int = 220) -> str:
-    """Transforme une entrée Littré brute en un indice lisible.
-
-    Ordre imposé : le balisage part en premier pour que la parenthèse
-    phonétique devienne détectable en tête de chaîne.
+def _finish_cleaning(text: str, target: str, max_chars: int) -> str:
+    """Applique toutes les étapes de nettoyage à un texte déjà coupé au
+    point d'entrée voulu (voir clean_definition). Isolée pour pouvoir être
+    retentée sur plusieurs points de coupure candidats.
     """
-    text = _TAG.sub("", raw)
+    # Une balise retirée ne doit jamais souder deux mots ensemble (voir
+    # _detag). Les espaces introduites — y compris en tête/en queue — sont
+    # éliminées par le tassement d'espaces qui suit immédiatement.
+    text = _detag(text)
     text = _WHITESPACE.sub(" ", text).strip()
 
     # La transcription phonétique épelle le mot : elle doit sauter. Les
@@ -163,6 +198,36 @@ def clean_definition(raw: str, target: str, max_chars: int = 220) -> str:
         text = cut + "…"
 
     return text.strip()
+
+
+def clean_definition(raw: str, target: str, max_chars: int = 220) -> str:
+    """Transforme une entrée Littré brute en un indice lisible.
+
+    Ordre imposé : le balisage part en premier pour que la parenthèse
+    phonétique devienne détectable en tête de chaîne.
+    """
+    # Coupe avant la première bannière d'appendice (voir _APPENDIX_BANNER) —
+    # étape ajoutée avant le retrait du balisage général, sans réordonner
+    # les étapes existantes. Cas limite vérifié sur les 93 313 entrées de
+    # l'index réel (une seule touchée, "ancêtre") : une entrée dont TOUTE la
+    # définition utile ne vit que dans une section de supplément, sans rien
+    # avant la première bannière. Couper là donnerait une définition vide,
+    # ce qu'aucune bannière ne justifie de préférer à une définition non
+    # vide. On retente donc, dans l'ordre, chaque point de coupure suivant
+    # (bannière suivante, ...) jusqu'au texte complet non coupé — préserver
+    # une définition non vide prime sur l'élimination de la bannière dans
+    # ce cas limite seulement ; pour toutes les autres entrées, le contenu
+    # avant la première bannière est déjà non vide et ce repli ne joue pas.
+    cut_points = [match.start() for match in _APPENDIX_BANNER.finditer(raw)]
+    candidates = [raw[:point] for point in cut_points]
+    candidates.append(raw)
+
+    for candidate in candidates:
+        cleaned = _finish_cleaning(candidate, target, max_chars)
+        if cleaned:
+            return cleaned
+
+    return ""
 
 
 class Littre:

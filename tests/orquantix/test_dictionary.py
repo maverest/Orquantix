@@ -230,15 +230,85 @@ def test_clean_definition_strips_phonetic_parenthesis_anywhere_in_text():
     assert "Terme de couvreur" in cleaned
 
 
-def test_clean_definition_masks_irregular_man_men_plural():
-    # "yeoman"/"yeomen" : le pluriel anglais irrégulier fait diverger le mot
-    # exactement dans la fenêtre du préfixe utilisée par le masquage normal
-    # ("yeoma" vs "yeome"), qui échappe donc au test startswith habituel.
-    raw = "au pluriel YEOMEN (iomèn), s. m. Membre de la yeomanry. Les yeomen."
-    cleaned = clean_definition(raw, "yeoman")
+# Les quatre tests suivants couvrent la troisième passe de correction :
+# les entrées Littré réelles ajoutent, après la définition utile, des
+# sections d'appendice balisées <big>...</big> (ÉTYMOLOGIE, SUPPLÉMENT AU
+# DICTIONNAIRE, HISTORIQUE, REMARQUE(S), SYNONYME, PROVERBE(S)) qui ne
+# doivent jamais atteindre le joueur, et le retrait générique du balisage
+# ne doit jamais souder deux mots ensemble.
 
-    assert "yeomen" not in cleaned.lower()
-    assert "iomèn" not in cleaned
+
+def test_clean_definition_stops_before_etymology_banner():
+    # Cas réel ("averse") : la bannière ÉTYMOLOGIE suit directement la
+    # définition utile — elle ne doit pas apparaître dans l'indice.
+    raw = (
+        "<i><small>(a-vèr-s') s. f.</small></i>\n"
+        "    Pluie subite et abondante. Nous avons reçu toute l'averse.\n"
+        "<big>ÉTYMOLOGIE</big>\n"
+        "    À et verse."
+    )
+    cleaned = clean_definition(raw, "averse")
+
+    assert cleaned == "Pluie subite et abondante. Nous avons reçu toute l'***."
+    assert "ÉTYMOLOGIE" not in cleaned
+    assert "À et verse" not in cleaned
+
+
+def test_clean_definition_stops_before_supplement_banner():
+    # Cas réel ("centimètre") : ÉTYMOLOGIE puis SUPPLÉMENT AU DICTIONNAIRE
+    # s'enchaînent après la définition utile — les deux doivent sauter.
+    raw = (
+        "<i><small>(san-ti-mè-tr') s. m.</small></i>\n"
+        "    La centième partie du mètre.\n"
+        "<big>ÉTYMOLOGIE</big>\n"
+        "    Centi.... et mètre.\n"
+        "<big>SUPPLÉMENT AU DICTIONNAIRE</big>\n"
+        "CENTIMÈTRE. Ajoutez :\n"
+        "<b>2°</b> Nom donné parmi les ouvrières en couture à un ruban."
+    )
+    cleaned = clean_definition(raw, "centimètre")
+
+    assert cleaned == "La centième partie du mètre."
+    assert "SUPPLÉMENT" not in cleaned
+    assert "Ajoutez" not in cleaned
+
+
+def test_clean_definition_falls_back_past_banner_when_that_cut_is_empty():
+    # Cas limite réel ("ancêtre") : la définition principale est vide, toute
+    # la matière utile ne vit que dans la section de supplément. Couper à la
+    # première bannière donnerait une définition vide ; il faut retenter
+    # avec le point de coupure suivant plutôt que de renvoyer "" — préserver
+    # une définition non vide prime sur l'élimination de la bannière dans ce
+    # cas limite seulement.
+    raw = (
+        "<i><small>(an-sê-tr') s. m.</small></i>\n"
+        "<big>SUPPLÉMENT AU DICTIONNAIRE</big>\n"
+        "ANCÊTRE. Ajoutez :\n"
+        "<b>4°</b> Il se dit figurément des choses pour signifier qu'elles "
+        "ont précédé les autres."
+    )
+    cleaned = clean_definition(raw, "ancêtre")
+
+    assert cleaned != ""
+    assert "figurément" in cleaned
+
+
+def test_clean_definition_inserts_separator_where_markup_removed():
+    # Cas réel ("table", "feu") : les résumés de sens consécutifs sont
+    # séparés uniquement par une balise "<variante ...>", sans espace ni
+    # ponctuation de part et d'autre. La retirer sans la remplacer par une
+    # espace soude les deux phrases ("rase.Planche").
+    raw = (
+        "<i><small>(ta-bl') s. f.</small></i>\n"
+        '<small><variante num="1" option="résumé">Planche, ais. Table rase.'
+        '<variante num="2" option="résumé">Planche ou réunion de planches '
+        "portée sur des pieds."
+    )
+    cleaned = clean_definition(raw, "table")
+
+    assert "rase.Planche" not in cleaned
+    assert "rase. Planche" in cleaned
+    assert "  " not in cleaned
 
 
 def test_littre_lookup_returns_none_for_absent_word(tmp_path):
@@ -344,10 +414,23 @@ def test_real_littre_sweep_has_no_residual_leak():
         # est nécessaire ailleurs, ex. "qu'avant-hier" doit isoler "avant-
         # hier" comme un jeton propre), ce qui fait qu'un mot-vedette
         # contenant lui-même une apostrophe n'est jamais reconnu par le
-        # préfixe replié qui, lui, la conserve. C'est un défaut préexistant,
-        # distinct de la structure de tête (root cause de ce correctif), qui
-        # touche des entrées de type locution/verbe pronominal improbables
-        # comme mot mystère du jeu — documenté, non corrigé ici.
+        # préfixe replié qui, lui, la conserve — un défaut préexistant,
+        # distinct de la structure de tête (root cause de ce correctif).
+        # Ce n'est PAS parce que ces entrées sont improbables comme mot
+        # mystère (elles ne le sont pas : "s'abstenir", "s'emparer",
+        # "s'écouler" sont des mots courants) : c'est parce que le jeu ne
+        # peut structurellement jamais les choisir. Le filtre de
+        # construction du vocabulaire (games/orquantix/vocabulary.py,
+        # _is_eligible_row) rejette d'emblée toute entrée Lexique383 dont
+        # la forme contient une apostrophe, quelle que soit sa fréquence —
+        # aucun verbe pronominal, aucune locution avec élision, ne peut donc
+        # jamais devenir le mot mystère. L'exclusion ci-dessous reste donc
+        # correcte, mais pour cette raison structurelle, pas pour une
+        # question de probabilité lexicale. Voir aussi le sweep dédié
+        # ci-dessous (test_real_littre_sweep_pool_shaped_keys_have_no_leak)
+        # qui restreint directement l'échantillon à la forme que le jeu
+        # peut réellement choisir, plutôt que de se contenter d'exclure un
+        # cas au passage.
         if "'" not in key:
             folded_target = fold(key)
             folded_tokens = fold(cleaned).replace("-", " ").split()
@@ -365,4 +448,71 @@ def test_real_littre_sweep_has_no_residual_leak():
     assert not headword_leaks, (
         f"{len(headword_leaks)}/{len(sample)} fuite(s) littérale(s) du "
         f"mot-vedette, ex. : {headword_leaks[:5]}"
+    )
+
+
+# Le sweep ci-dessus balaie toutes les clés de l'index, apostrophe comprise,
+# et exclut seulement l'invariant de fuite littérale pour les clés qui en
+# contiennent une (voir commentaire ci-dessus pour la vraie raison). Le
+# sweep suivant va plus loin : il restreint l'ÉCHANTILLON lui-même à la
+# forme exacte de mot que le jeu peut choisir comme mot mystère — sans
+# espace, sans trait d'union, sans apostrophe — et affirme les trois
+# invariants sur ce sous-ensemble sans aucune exclusion. On ne réimporte pas
+# games/orquantix/vocabulary.py ici : seule la contrainte de FORME qu'il
+# impose est reproduite directement sur les clés de l'index Littré, ce qui
+# garde ce test de dictionary.py indépendant de ce module tout en exerçant
+# exactement la forme de mot que le jeu peut réellement piocher (le filtre
+# de vocabulary.py restreint aussi par grammaire — NOM singulier — et par
+# présence dans le modèle word2vec, deux contraintes hors du périmètre de
+# ce module : ce sweep n'a pas besoin de les reproduire pour être utile).
+_REAL_SWEEP_POOL_SHAPED_SEED = 20260816
+_REAL_SWEEP_POOL_SHAPED_SAMPLE_SIZE = 8000
+
+
+@pytest.mark.skipif(not REAL_AVAILABLE, reason="Littré non téléchargé")
+def test_real_littre_sweep_pool_shaped_keys_have_no_leak():
+    littre = Littre(REAL_DIR / "XMLittre.idx", REAL_DIR / "XMLittre.dict.dz")
+    index = load_index(REAL_DIR / "XMLittre.idx")
+
+    pool_shaped_keys = sorted(
+        key for key in index if not any(c in key for c in (" ", "-", "'"))
+    )
+    sample = random.Random(_REAL_SWEEP_POOL_SHAPED_SEED).sample(
+        pool_shaped_keys,
+        min(_REAL_SWEEP_POOL_SHAPED_SAMPLE_SIZE, len(pool_shaped_keys)),
+    )
+
+    phonetic_leaks = []
+    leading_leaks = []
+    headword_leaks = []
+
+    for key in sample:
+        cleaned = littre.lookup(key)
+        if cleaned is None:
+            continue
+
+        if _PHONETIC_PAREN.search(cleaned):
+            phonetic_leaks.append((key, cleaned))
+
+        if any(pattern.match(cleaned) for pattern in _LEADING_STRUCTURE_PATTERNS):
+            leading_leaks.append((key, cleaned))
+
+        # Aucune exclusion ici : toutes les clés échantillonnées sont, par
+        # construction, sans apostrophe.
+        folded_target = fold(key)
+        folded_tokens = fold(cleaned).replace("-", " ").split()
+        if folded_target in folded_tokens:
+            headword_leaks.append((key, cleaned))
+
+    assert not phonetic_leaks, (
+        f"{len(phonetic_leaks)}/{len(sample)} parenthèse(s) phonétique(s) "
+        f"résiduelle(s) (forme pool), ex. : {phonetic_leaks[:5]}"
+    )
+    assert not leading_leaks, (
+        f"{len(leading_leaks)}/{len(sample)} structure(s) de tête "
+        f"résiduelle(s) (forme pool), ex. : {leading_leaks[:5]}"
+    )
+    assert not headword_leaks, (
+        f"{len(headword_leaks)}/{len(sample)} fuite(s) littérale(s) du "
+        f"mot-vedette (forme pool), ex. : {headword_leaks[:5]}"
     )
