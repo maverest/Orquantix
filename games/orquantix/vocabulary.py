@@ -1,92 +1,106 @@
+from __future__ import annotations
+
 import csv
+from dataclasses import dataclass
+
 from unidecode import unidecode
+
+FORBIDDEN_CHARS = (" ", "-", "'")
 
 
 def normalize(word: str) -> str:
-    """Lowercase + remove accents."""
+    """Minuscules sans accents."""
     return unidecode(word.lower())
 
 
 def build_norm_map(words: list[str]) -> dict[str, str]:
-    """Map normalized form → original form. Last writer wins on collision."""
+    """Forme normalisée → forme d'origine. Le dernier écrit gagne."""
     return {normalize(w): w for w in words}
 
 
-def _is_eligible_row(row: dict) -> bool:
-    """Return True if this Lexique383 row passes the grammatical filter.
+@dataclass(frozen=True)
+class Pools:
+    """Les deux ensembles dérivés de Lexique383.
 
-    Supports both the numbered column format used in tests (1_ortho, 3_lemme…)
-    and the real Lexique383 format (ortho, lemme…).
+    mystery_words : cibles possibles, triées par fréquence décroissante.
+    hint_words    : mots proposables comme indices.
     """
-    ortho = row.get("ortho") or row.get("1_ortho", "")
-    lemme = row.get("lemme") or row.get("3_lemme", "")
-    cgram = row.get("cgram") or row.get("4_cgram", "")
-    genre = row.get("genre") or row.get("5_genre", "")
-    nombre = row.get("nombre") or row.get("6_nombre", "")
 
-    # No spaces, hyphens or apostrophes
-    if any(c in ortho for c in (" ", "-", "'")):
-        return False
+    mystery_words: list[str]
+    mystery_freq: dict[str, float]
+    hint_words: frozenset[str]
 
-    # NOM singulier ou invariable (nombre vide = mot invariable ex: bordeaux)
-    if cgram == "NOM" and nombre in ("s", ""):
+
+def _has_clean_form(ortho: str) -> bool:
+    return not any(c in ortho for c in FORBIDDEN_CHARS)
+
+
+def _is_singular_noun(cgram: str, nombre: str) -> bool:
+    return cgram == "NOM" and nombre in ("s", "")
+
+
+def _is_content_word(cgram: str, genre: str, nombre: str, ortho: str, lemme: str) -> bool:
+    if _is_singular_noun(cgram, nombre):
         return True
-    # ADJ masculin singulier ou invariable (ex: mauve, rose, turquoise)
     if cgram == "ADJ" and genre in ("m", "") and nombre in ("s", ""):
         return True
-    if cgram == "VER" and ortho == lemme:  # infinitive: form equals lemma
+    if cgram == "VER" and ortho == lemme:  # infinitif : la forme égale le lemme
         return True
     return False
 
 
-def filter_eligible_words(
+def build_pools(
     tsv_path: str,
     model_vocab: set[str],
-    min_freq: float = 5.0,
-) -> tuple[list[str], dict[str, float]]:
+    *,
+    mystery_min: float = 10.0,
+    mystery_max: float = 400.0,
+    hint_min: float = 5.0,
+) -> Pools:
+    """Construit les deux pools en un seul passage sur Lexique383.
+
+    Le pool d'indices est plus large que celui des mots mystères : un indice
+    n'a pas à être un mot avec lequel on pourrait gagner, il doit orienter.
     """
-    Read Lexique383 TSV, apply grammatical + frequency filter, intersect with
-    model vocabulary.
+    mystery_freq: dict[str, float] = {}
+    hint_words: set[str] = set()
 
-    Supports both real Lexique383 column names (ortho, lemme, cgram…) and
-    the numbered test format (1_ortho, 3_lemme, 4_cgram…).
-
-    Returns:
-        vocab: eligible words sorted by frequency descending
-        freq_by_word: {word: freqlemlivres}
-    """
-    freq_by_word: dict[str, float] = {}
-
-    with open(tsv_path, encoding="utf-8") as f:
-        reader = csv.DictReader(f, delimiter="\t")
-        for row in reader:
-            ortho = row.get("ortho") or row.get("1_ortho", "")
-            if not _is_eligible_row(row):
+    with open(tsv_path, encoding="utf-8") as handle:
+        for row in csv.DictReader(handle, delimiter="\t"):
+            ortho = row.get("ortho", "")
+            if not ortho or ortho not in model_vocab or not _has_clean_form(ortho):
                 continue
+
+            cgram = row.get("cgram", "")
+            genre = row.get("genre", "")
+            nombre = row.get("nombre", "")
+            lemme = row.get("lemme", "")
+
             try:
-                freq = float(row.get("freqlemlivres") or row.get("7_freqlemlivres") or 0)
+                freq = float(row.get("freqlemlivres") or 0)
             except ValueError:
                 freq = 0.0
-            if freq < min_freq:
-                continue
-            if ortho not in model_vocab:
-                continue
-            # Keep highest frequency if word appears multiple times
-            if ortho not in freq_by_word or freq > freq_by_word[ortho]:
-                freq_by_word[ortho] = freq
 
-    vocab = sorted(freq_by_word, key=freq_by_word.__getitem__, reverse=True)
-    return vocab, freq_by_word
+            if freq >= hint_min and _is_content_word(cgram, genre, nombre, ortho, lemme):
+                hint_words.add(ortho)
+
+            if _is_singular_noun(cgram, nombre) and mystery_min <= freq < mystery_max:
+                if ortho not in mystery_freq or freq > mystery_freq[ortho]:
+                    mystery_freq[ortho] = freq
+
+    mystery_words = sorted(mystery_freq, key=mystery_freq.__getitem__, reverse=True)
+    return Pools(
+        mystery_words=mystery_words,
+        mystery_freq=mystery_freq,
+        hint_words=frozenset(hint_words),
+    )
 
 
 def compute_difficulty_thresholds(
     vocab: list[str],
     freq_by_word: dict[str, float],
 ) -> list[float]:
-    """
-    Return 4 ascending frequency thresholds [q20, q40, q60, q80] that divide
-    vocab into 5 equal-size groups (quintiles).
-    """
+    """Quatre seuils croissants découpant le vocabulaire en quintiles."""
     freqs = sorted(freq_by_word.get(w, 0.0) for w in vocab)
     n = len(freqs)
     if n == 0:

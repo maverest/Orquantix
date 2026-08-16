@@ -18,8 +18,8 @@ from games.orquantix.engine import (
 )
 from games.orquantix.vocabulary import (
     build_norm_map,
+    build_pools,
     compute_difficulty_thresholds,
-    filter_eligible_words,
     normalize,
 )
 from rapidfuzz import process as fuzz_process
@@ -296,7 +296,9 @@ def _do_background_work(state: AppState, data_dir: Path) -> None:
 
     state.update(progress=60, detail="Filtrage du vocabulaire…")
     model_vocab = set(model.key_to_index.keys())
-    vocab, freq_by_word = filter_eligible_words(str(lexique_path), model_vocab)
+    pools = build_pools(str(lexique_path), model_vocab)
+    vocab = pools.mystery_words
+    freq_by_word = pools.mystery_freq
 
     if not vocab:
         raise RuntimeError("Aucun mot éligible trouvé — vérifiez Lexique383.tsv")
