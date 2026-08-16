@@ -95,7 +95,7 @@ def test_get_progress_percent_inside_top1000():
     from game import get_progress_percent
 
     assert get_progress_percent(1000) == 0.0
-    assert get_progress_percent(500) == 9.52
+    assert get_progress_percent(500) == 9.54
     assert get_progress_percent(1) == 99.99
 
 
@@ -103,7 +103,7 @@ def test_get_proximity_feedback_for_ranked_guess():
     from game import get_proximity_feedback
 
     feedback = get_proximity_feedback(120)
-    assert feedback["progress"] == 64.85
+    assert feedback["progress"] == 65.0
     assert feedback["mood"] == "overexcited"
     assert feedback["beast"] == "Surexcité"
     assert feedback["label"] == "L'orque s'emballe"

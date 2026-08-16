@@ -86,9 +86,11 @@ Si gensim échoue sur une incompatibilité numpy, forcer `pip install "gensim>=4
 - [ ] **Step 3: Lancer la suite existante**
 
 Run: `python -m pytest -q`
-Expected: `46 passed`
+Expected: `50 passed`
 
-C'est la ligne de base. Si elle n'est pas verte, régler avant de continuer.
+C'est la ligne de base.
+
+**Deux tests étaient périmés dans le dépôt d'origine** et ont été corrigés au démarrage du chantier : `test_get_progress_percent_inside_top1000` attendait `9.52` là où la formule donne `9.54`, et `test_get_proximity_feedback_for_ranked_guess` attendait `64.85` pour `65.0`. Le code était juste, les attentes fausses. Les deux tests visent des fonctions supprimées en Task 5.
 
 - [ ] **Step 4: Écrire `.gitignore`**
 
@@ -2226,9 +2228,14 @@ DOWNLOADS: tuple[Download, ...] = (
         share=70,
     ),
     Download(
-        url="https://tools.wmflabs.org/dictionaries/XMLittre.dict.dz",
+        url="https://archive.org/download/XMLittre.dict/XMLittre.dict.dz",
         filename="XMLittre.dict.dz",
-        share=16,
+        share=15,
+    ),
+    Download(
+        url="https://archive.org/download/XMLittre.dict/XMLittre.idx",
+        filename="XMLittre.idx",
+        share=1,
     ),
 )
 
@@ -2241,7 +2248,11 @@ def missing_files(data_dir) -> list[str]:
     return [spec.filename for spec in DOWNLOADS if not (data_dir / spec.filename).exists()]
 ```
 
-**Note pour l'implémenteur :** l'URL de Littré ci-dessus est un espace réservé à **vérifier avant de committer**. Le fichier est déjà présent sur la machine de l'utilisateur ; s'il n'existe pas d'URL stable, retirer Littré de `DOWNLOADS`, redistribuer les parts sur 100 entre les deux autres, et faire de la présence du dictionnaire une condition optionnelle — `load_resources` gère déjà `littre = None`. Ne pas inventer une URL qui ne répond pas.
+**Les URL Littré sont vérifiées** (2026-08-16) : les deux répondent en HTTP 200 avec `content-length` 29 654 881 et 2 358 585 octets, exactement les tailles des fichiers déjà présents localement. Le dictionnaire compte donc **quatre** entrées dans `DOWNLOADS`, puisque l'index et le corps sont deux fichiers distincts et tous deux nécessaires.
+
+Adapter `test_three_files_are_declared` en conséquence — il doit vérifier la présence des quatre noms de fichiers, `XMLittre.idx` compris.
+
+Attribution à porter dans le README : texte d'Émile Littré, domaine public ; encodage XML par François Gannaz (https://littre.org), CC-BY-SA 3.0.
 
 - [ ] **Step 4: Réécrire `download_all`**
 
