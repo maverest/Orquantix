@@ -43,18 +43,17 @@ def main() -> None:
     # When bundled by PyInstaller, resources live in sys._MEIPASS
     if getattr(sys, "frozen", False):
         base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
-        os.environ["SEMANTIX_TEMPLATES"] = str(base / "templates")
-        os.environ["SEMANTIX_STATIC"] = str(base / "static")
+        os.environ["PROCRASTINATOR_TEMPLATES"] = str(base / "templates")
+        os.environ["PROCRASTINATOR_STATIC"] = str(base / "static")
 
     design_mode = "--design" in sys.argv
     port = find_free_port()
     data_dir = get_data_dir()
 
-    from app import AppState, create_app, start_background
+    from app import Shell, create_app
 
-    state = AppState()
-    flask_app = create_app(state)
-    start_background(state, data_dir)
+    shell = Shell(data_dir)
+    flask_app = create_app(shell)
 
     server_thread = threading.Thread(
         target=lambda: flask_app.run(

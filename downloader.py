@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Callable
 import requests
 
 if TYPE_CHECKING:
-    from app import AppState
+    from games.orquantix.state import OrquantixState
 
 LEXIQUE_URL = "http://www.lexique.org/databases/Lexique383/Lexique383.tsv"
 LEXIQUE_FILENAME = "Lexique383.tsv"
@@ -67,7 +67,13 @@ def download_file(
         raise
 
 
-def download_all(state: AppState, data_dir: Path) -> None:
+def missing_files(data_dir: Path) -> list[str]:
+    """Les fichiers requis qui ne sont pas encore sur le disque."""
+    required = (LEXIQUE_FILENAME, MODEL_FILENAME)
+    return [name for name in required if not (data_dir / name).exists()]
+
+
+def download_all(state: "OrquantixState", data_dir: Path) -> None:
     """
     Download Lexique383 (if missing) then model (if missing).
     Updates state.progress and state.detail throughout.

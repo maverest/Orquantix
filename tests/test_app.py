@@ -1,210 +1,86 @@
+"""Tests de la coquille (Shell) elle-même.
+
+Distinct de tests/orquantix/test_routes.py : ici on vérifie que app.py sait
+démarrer un jeu paresseusement, une seule fois, et remonter une erreur —
+sans rien connaître des règles d'Orquantix. Aucun de ces cas n'existait dans
+l'ancien tests/test_app.py (qui testait AppState, supprimé avec ce refactor).
+"""
+
 import pytest
-from tests.conftest import make_mock_model, MODEL_VOCAB
-from games.orquantix.vocabulary import build_norm_map, compute_difficulty_thresholds
-from games.orquantix.engine import get_top1000
-from app import AppState, create_app
 
-
-VOCAB = ["chien", "chat", "maison", "arbre", "fleur"]
-FREQ = {"chien": 52.3, "chat": 45.0, "maison": 80.0, "arbre": 30.0, "fleur": 15.0}
+import app as app_module
+from app import Shell, create_app
 
 
 @pytest.fixture
-def model():
-    return make_mock_model(VOCAB)
+def shell(tmp_path, monkeypatch):
+    monkeypatch.setattr(app_module, "missing_files", lambda data_dir: [])
+    monkeypatch.setattr(app_module, "load_resources", lambda state, data_dir: None)
+    return Shell(tmp_path)
 
 
 @pytest.fixture
-def ready_state(model):
-    state = AppState()
-    thresholds = compute_difficulty_thresholds(VOCAB, FREQ)
-    state.phase = "ready"
-    state.progress = 100
-    state.detail = "Prêt !"
-    state.model = model
-    state.vocab = VOCAB
-    state.freq_by_word = FREQ
-    state.norm_to_vocab = build_norm_map(VOCAB)
-    state.norm_to_model = build_norm_map(VOCAB)
-    state.difficulty_thresholds = thresholds
-    state.top1000 = get_top1000(model, "chien")
-    state.daily_word = "chien"
-    state.daily_difficulty = 2
-    state.game_index = 0
-    return state
-
-
-@pytest.fixture
-def client(ready_state):
-    app = create_app(ready_state)
-    app.config["TESTING"] = True
-    with app.test_client() as c:
+def client(shell):
+    flask_app = create_app(shell)
+    flask_app.config["TESTING"] = True
+    with flask_app.test_client() as c:
         yield c
 
 
-def test_status_ready(client):
-    resp = client.get("/status")
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["phase"] == "ready"
-    assert data["progress"] == 100
+def test_home_redirects_into_the_game(client):
+    resp = client.get("/", follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/games/orquantix/")
 
 
-def test_status_downloading():
-    state = AppState()
-    state.phase = "downloading"
-    state.progress = 42
-    state.detail = "Test detail"
-    app = create_app(state)
-    app.config["TESTING"] = True
-    with app.test_client() as c:
-        resp = c.get("/status")
-        data = resp.get_json()
-        assert data["phase"] == "downloading"
-        assert data["progress"] == 42
-        assert data["detail"] == "Test detail"
+def test_status_reports_idle_before_the_game_is_entered(client):
+    data = client.get("/status").get_json()
+    assert data["phase"] == "idle"
 
 
-def test_daily_info(client, ready_state):
-    resp = client.get("/daily-info")
-    data = resp.get_json()
-    assert data["difficulty"] == ready_state.daily_difficulty
-    assert data["word_length"] == len(ready_state.daily_word)
+def test_ensure_loaded_starts_the_game_only_once(shell):
+    shell.ensure_loaded("orquantix")
+    shell.ensure_loaded("orquantix")
+
+    # L'idempotence se vérifie sans attendre le thread : l'ensemble
+    # `_started` est mis à jour de façon synchrone avant le lancement.
+    assert shell._started == {"orquantix"}
 
 
-def test_guess_win(client):
-    resp = client.post("/guess", json={"word": "chien"})
-    data = resp.get_json()
-    assert data["win"] is True
-    assert data["score"] == 100.0
-    assert data["word"] == "chien"
-    assert data["gave_up"] is False
-    # proximity est un stub provisoire (Task 5) ; réécrit en Task 8.
-    assert data["proximity"]["found"] is True
+def test_load_downloads_only_when_files_are_missing(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(app_module, "missing_files", lambda data_dir: ["Lexique383.tsv"])
+    monkeypatch.setattr(app_module, "download_all", lambda state, data_dir: calls.append("download"))
+    monkeypatch.setattr(app_module, "load_resources", lambda state, data_dir: calls.append("load"))
+
+    shell = Shell(tmp_path)
+    shell._load("orquantix")
+
+    assert calls == ["download", "load"]
 
 
-def test_guess_win_normalized(client):
-    resp = client.post("/guess", json={"word": "CHIEN"})
-    data = resp.get_json()
-    assert data["win"] is True
+def test_load_skips_download_when_files_are_present(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(app_module, "missing_files", lambda data_dir: [])
+    monkeypatch.setattr(app_module, "download_all", lambda state, data_dir: calls.append("download"))
+    monkeypatch.setattr(app_module, "load_resources", lambda state, data_dir: calls.append("load"))
+
+    shell = Shell(tmp_path)
+    shell._load("orquantix")
+
+    assert calls == ["load"]
 
 
-def test_guess_known_word(client):
-    resp = client.post("/guess", json={"word": "chat"})
-    data = resp.get_json()
-    assert data["word"] == "chat"
-    assert "score" in data
-    assert 0.0 <= data["score"] <= 100.0
-    assert data["win"] is False
-    assert "proximity" in data
-    # proximity est un stub provisoire (Task 5) ; réécrit en Task 8.
-    assert data["proximity"]["found"] is False
+def test_load_failure_is_reported_on_the_state_instead_of_crashing(monkeypatch, tmp_path):
+    monkeypatch.setattr(app_module, "missing_files", lambda data_dir: [])
 
+    def boom(state, data_dir):
+        raise RuntimeError("kaboom")
 
-def test_guess_unknown_word(client):
-    resp = client.post("/guess", json={"word": "xyznotaword"})
-    data = resp.get_json()
-    assert "error" in data
-    assert "score" not in data
+    monkeypatch.setattr(app_module, "load_resources", boom)
 
+    shell = Shell(tmp_path)
+    shell._load("orquantix")  # ne doit pas lever
 
-def test_guess_missing_field(client):
-    resp = client.post("/guess", json={})
-    assert resp.status_code == 400
-
-
-def test_give_up_reveals_daily_word(client, ready_state):
-    resp = client.post("/give-up")
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["word"] == ready_state.daily_word
-    assert data["win"] is True
-    assert data["gave_up"] is True
-    # proximity est un stub provisoire (Task 5) ; réécrit en Task 8.
-    assert data["proximity"]["found"] is True
-
-
-def test_new_game_increments_index(client, ready_state):
-    resp = client.post("/new-game")
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert "difficulty" in data
-    assert "word_length" in data
-    assert ready_state.game_index == 1
-
-
-def test_new_game_recomputes_top1000(client, ready_state):
-    client.post("/new-game")
-    assert ready_state.game_index == 1
-
-
-def test_suggest_finds_close_word(client, ready_state):
-    # "chein" est une faute de frappe de "chien" (dans le vocab du modèle)
-    resp = client.post("/suggest", json={"word": "chein"})
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["suggestion"] == "chien"
-
-
-def test_suggest_returns_null_when_no_match(client, ready_state):
-    # "xqzjkl" n'a aucun proche dans le petit vocab de test
-    resp = client.post("/suggest", json={"word": "xqzjkl"})
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["suggestion"] is None
-
-
-def test_suggest_missing_field(client):
-    resp = client.post("/suggest", json={})
-    assert resp.status_code == 400
-
-
-def test_hint_first_letter(client, ready_state):
-    resp = client.post("/hint", json={"type": "first-letter"})
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["value"] == ready_state.daily_word[0]
-
-
-def test_hint_word_length(client, ready_state):
-    resp = client.post("/hint", json={"type": "word-length"})
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["value"] == len(ready_state.daily_word)
-    assert "lettres" in data["message"]
-
-
-def test_hint_better_word(client, ready_state):
-    worst_rank = max(ready_state.top1000.values())
-    guessed_word = next(word for word, rank in ready_state.top1000.items() if rank == worst_rank)
-    resp = client.post("/hint", json={
-        "type": "better-word",
-        "best_rank": worst_rank,
-        "guessed_words": [guessed_word],
-    })
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["value"] in ready_state.top1000
-    assert ready_state.top1000[data["value"]] < worst_rank
-    assert data["value"] != guessed_word
-
-
-def test_hint_golden_fish_returns_strong_neighbor(client, ready_state):
-    resp = client.post("/hint", json={
-        "type": "golden-fish",
-        "guessed_words": [],
-    })
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["value"] in ready_state.top1000
-    assert ready_state.top1000[data["value"]] <= 100
-
-
-def test_suggest_not_ready():
-    state = AppState()
-    state.phase = "loading"
-    app = create_app(state)
-    app.config["TESTING"] = True
-    with app.test_client() as c:
-        resp = c.post("/suggest", json={"word": "chien"})
-        assert resp.status_code == 503
+    assert shell.orquantix.phase == "error"
+    assert "kaboom" in shell.orquantix.detail

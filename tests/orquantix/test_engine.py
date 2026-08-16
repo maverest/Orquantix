@@ -3,11 +3,87 @@ import pytest
 from games.orquantix.engine import (
     TemperatureScale,
     build_temperature_scale,
+    get_daily_word,
+    get_difficulty,
+    get_score,
+    get_top1000,
     temperature,
 )
+from games.orquantix.vocabulary import compute_difficulty_thresholds
+from tests.conftest import make_mock_model
 
 # Ancres réelles mesurées sur la cible "confiture".
 SCALE = TemperatureScale(floor=0.0391, top1000=0.1551, maximum=0.7113)
+
+# Reprises de l'ancien tests/test_game.py (Task 8 : app.py devient la coquille).
+VOCAB_5 = ["maison", "chien", "arbre", "fleur", "chat"]
+FREQ_5 = {"maison": 100.0, "chien": 80.0, "arbre": 60.0, "fleur": 40.0, "chat": 20.0}
+
+
+def test_get_daily_word_returns_vocab_word():
+    w = get_daily_word(VOCAB_5, 0)
+    assert w in VOCAB_5
+
+
+def test_get_daily_word_deterministic():
+    assert get_daily_word(VOCAB_5, 0) == get_daily_word(VOCAB_5, 0)
+
+
+def test_get_daily_word_different_index():
+    results = {get_daily_word(VOCAB_5, i) for i in range(5)}
+    assert len(results) >= 2
+
+
+def test_get_difficulty_easy():
+    thresholds = compute_difficulty_thresholds(VOCAB_5, FREQ_5)
+    assert get_difficulty("maison", FREQ_5, thresholds) == 1
+
+
+def test_get_difficulty_hard():
+    thresholds = compute_difficulty_thresholds(VOCAB_5, FREQ_5)
+    assert get_difficulty("chat", FREQ_5, thresholds) == 5
+
+
+def test_get_difficulty_middle():
+    thresholds = compute_difficulty_thresholds(VOCAB_5, FREQ_5)
+    d = get_difficulty("arbre", FREQ_5, thresholds)
+    assert 1 <= d <= 5
+
+
+def test_get_score_exact_word():
+    model = make_mock_model(["chien", "chat"])
+    score = get_score(model, "chien", "chien")
+    assert score == 100.0
+
+
+def test_get_score_range():
+    model = make_mock_model(["chien", "chat", "maison"])
+    score = get_score(model, "chat", "chien")
+    assert 0.0 <= score <= 100.0
+
+
+def test_get_score_two_decimals():
+    model = make_mock_model(["chien", "chat"])
+    score = get_score(model, "chat", "chien")
+    assert round(score, 2) == score
+
+
+def test_get_top1000_structure():
+    words = ["a", "b", "c", "d", "e"]
+    model = make_mock_model(words)
+    top = get_top1000(model, "a")
+    assert isinstance(top, dict)
+    assert "a" not in top
+    assert all(isinstance(v, int) for v in top.values())
+    assert min(top.values()) == 1
+
+
+def test_get_top1000_ranks_contiguous():
+    words = ["a", "b", "c", "d", "e"]
+    model = make_mock_model(words)
+    top = get_top1000(model, "a")
+    ranks = sorted(top.values())
+    assert ranks == list(range(1, len(ranks) + 1))
 
 
 def test_temperature_is_zero_at_and_below_the_floor():
