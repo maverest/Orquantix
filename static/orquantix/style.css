@@ -1,3 +1,15 @@
+/* ===== Tokens =====
+   --temp-* : les quatre teintes du thermomètre froid/chaud, la seule chose
+   que ce jeu consomme réellement depuis static/shell.css jusqu'ici. Elles
+   vivent ici parce qu'elles sont spécifiques à la métaphore chaud/froid
+   d'Orquantix, pas à un vocabulaire partagé entre mini-jeux. */
+:root {
+  --temp-cold: #8b9bb4;
+  --temp-cool: #e5c33c;
+  --temp-warm: #e8913f;
+  --temp-hot: #e0554e;
+}
+
 /* ===== Reset ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {

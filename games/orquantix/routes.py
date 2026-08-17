@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from flask import Blueprint, jsonify, render_template, request
 from rapidfuzz import process as fuzz_process
 
@@ -10,7 +12,14 @@ BLUEPRINT_NAME = "orquantix"
 URL_PREFIX = "/games/orquantix"
 
 
-def build_blueprint(state) -> Blueprint:
+def build_blueprint(state, on_load: Callable[[], None] | None = None) -> Blueprint:
+    """Construit le blueprint du jeu.
+
+    on_load : déclenché à chaque entrée dans le jeu via index() — c'est ici,
+    pas dans la coquille (app.py), que le chargement paresseux doit démarrer,
+    pour qu'atteindre /games/orquantix/ directement fonctionne, et pour
+    qu'un futur menu phase 2 ne charge pas Orquantix à chaque visite.
+    """
     bp = Blueprint(BLUEPRINT_NAME, __name__, url_prefix=URL_PREFIX)
 
     def _not_ready():
@@ -30,6 +39,8 @@ def build_blueprint(state) -> Blueprint:
 
     @bp.route("/")
     def index():
+        if on_load is not None:
+            on_load()
         return render_template("orquantix/index.html")
 
     @bp.route("/status")
@@ -157,7 +168,7 @@ def build_blueprint(state) -> Blueprint:
         state.start_new_round(
             mystery_word=word,
             neighbours=neighbours,
-            top1000={w: i + 1 for i, (w, _) in enumerate(neighbours)},
+            top1000=engine.rank_map(neighbours),
             scale=engine.build_temperature_scale(state.model, word, neighbours),
             difficulty=engine.get_difficulty(word, state.pools.mystery_freq, state.difficulty_thresholds),
         )

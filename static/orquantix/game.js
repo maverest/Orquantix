@@ -1,13 +1,10 @@
 let guesses = [];
-let startTime = null;
 let guessCounter = 0;
 let pendingSuggestion = null;
 let timerRunning = false;
 let timerStartedAt = null;
 let timerCompletedMs = null;
 let timerInterval = null;
-let currentGameUsedHint = false;
-let currentGameResolved = false;
 
 function showSuggestion(word) {
   pendingSuggestion = word;
@@ -87,7 +84,7 @@ function startTimerMode() {
   timerInterval = setInterval(updateTimerDisplay, 250);
   updateTimerDisplay();
   updateTimerButton();
-  speakOrca('timer-start', currentOrcaMood, true);
+  speakOrca('timer-start', currentOrcaMood);
 }
 
 function stopTimer() {
@@ -115,25 +112,11 @@ function toggleHintPanel() {
   panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
 }
 
-function getBestGuess() {
-  if (!guesses.length) return null;
-  return guesses.reduce((best, guess) => {
-    if (!best) return guess;
-    return guess.temperature > best.temperature ? guess : best;
-  }, null);
-}
-
 function requestHint(type) {
-  currentGameUsedHint = true;
-  const bestGuess = getBestGuess();
   fetch('/games/orquantix/hint', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      type,
-      best_rank: bestGuess ? bestGuess.rank : null,
-      guessed_words: guesses.map(g => g.word)
-    })
+    body: JSON.stringify({type})
   })
     .then(r => r.json())
     .then(data => {
@@ -144,7 +127,7 @@ function requestHint(type) {
       if (data.value && (type === 'better-word' || type === 'golden-fish')) {
         document.getElementById('guessInput').placeholder = 'Indice : ' + data.value;
       }
-      speakOrca(type, currentOrcaMood, true);
+      speakOrca(type, currentOrcaMood);
       if (orcaMode !== 'mute') {
         document.getElementById('orcaBubble').textContent = data.message;
       }
@@ -198,7 +181,6 @@ function activateGame() {
     .then(data => {
       document.getElementById('downloadScreen').style.display = 'none';
       document.getElementById('gameScreen').style.display = 'block';
-      startTime = Date.now();
       guessCounter = 0;
 
       renderDifficulty(data.difficulty);
@@ -213,8 +195,6 @@ function activateGame() {
         'Mode dyslexique : ' + (dyslexicMode ? 'ON' : 'OFF');
       document.getElementById('dyslexicToggle').classList.toggle('active', dyslexicMode);
       resetTimer();
-      currentGameUsedHint = false;
-      currentGameResolved = false;
       updateGiveUpButton();
       applyOrcaTool(orcaMode, 'Ola que tal');
 
@@ -245,7 +225,7 @@ function submitWord(word) {
     .then(data => {
       if (data.error) {
         if (data.error === 'inconnu') {
-          speakOrca('unknown', 'sick', true);
+          speakOrca('unknown', 'sick');
         }
         if (data.error === 'inconnu' && dyslexicMode) {
           fetchSuggestion(word);
@@ -263,7 +243,7 @@ function submitWord(word) {
         temperatureAnimated: false,
       });
       guesses.sort((a, b) => b.temperature - a.temperature);
-      speakOrca(data.mood, data.mood, false);
+      speakOrca(data.mood, data.mood);
       updateGiveUpButton();
       renderTable().then(() => {
         if (data.win) showVictory();
@@ -389,15 +369,12 @@ function renderTable() {
 }
 
 function showVictory() {
-  if (!currentGameResolved) {
-    currentGameResolved = true;
-  }
   if (timerRunning) {
     stopTimer();
   }
   document.getElementById('guessForm').style.display    = 'none';
   updateReplayButton(true);
-  speakOrca('found', 'found', true);
+  speakOrca('found', 'found');
 }
 
 function newGame() {
@@ -406,10 +383,7 @@ function newGame() {
     .then(data => {
       guesses = [];
       guessCounter = 0;
-      startTime = Date.now();
       resetTimer();
-      currentGameUsedHint = false;
-      currentGameResolved = false;
       renderDifficulty(data.difficulty);
       renderTable();
       document.getElementById('guessForm').style.display    = 'flex';

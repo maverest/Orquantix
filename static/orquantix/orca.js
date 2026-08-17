@@ -175,7 +175,7 @@ function setOrcaState(mood, message) {
   syncOrcaTools();
 }
 
-function speakOrca(kind, mood, force) {
+function speakOrca(kind, mood) {
   const resolvedMood = mood || currentOrcaMood || 'neutral';
   if (orcaMode === 'mute') {
     setOrcaState(resolvedMood, '...');

@@ -10,6 +10,7 @@ import pytest
 
 import app as app_module
 from app import Shell, create_app
+from games.orquantix import GAME_ID
 
 
 @pytest.fixture
@@ -36,6 +37,16 @@ def test_home_redirects_into_the_game(client):
 def test_status_reports_idle_before_the_game_is_entered(client):
     data = client.get("/status").get_json()
     assert data["phase"] == "idle"
+
+
+def test_game_index_triggers_loading_without_going_through_home(client, shell):
+    # Le chargement paresseux doit démarrer depuis l'index du jeu lui-même,
+    # pas seulement depuis / : sinon un accès direct à /games/orquantix/
+    # laisse le front sonder indéfiniment à phase "idle".
+    resp = client.get("/games/orquantix/")
+
+    assert resp.status_code == 200
+    assert shell._started == {GAME_ID}
 
 
 def test_ensure_loaded_starts_the_game_only_once(shell):

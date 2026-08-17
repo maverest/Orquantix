@@ -49,12 +49,16 @@ def create_app(shell: Shell) -> Flask:
     static_dir = os.environ.get("PROCRASTINATOR_STATIC", "static")
     app = Flask(__name__, template_folder=templates_dir, static_folder=static_dir)
 
-    app.register_blueprint(build_blueprint(shell.orquantix))
+    app.register_blueprint(
+        build_blueprint(shell.orquantix, on_load=lambda: shell.ensure_loaded(GAME_ID))
+    )
 
     @app.route("/")
     def home():
         # Phase 2 : le menu de PROCRASTINATOR. En attendant, on entre dans le jeu.
-        shell.ensure_loaded(GAME_ID)
+        # Le chargement paresseux se déclenche sur l'index du jeu lui-même
+        # (routes.py), pas ici : cette redirection l'atteint de toute façon,
+        # et un accès direct à /games/orquantix/ le déclenche aussi.
         return redirect(url_for("orquantix.index"))
 
     @app.route("/status")

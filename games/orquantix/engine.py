@@ -83,16 +83,6 @@ def temperature(scale: TemperatureScale, similarity: float, *, found: bool = Fal
     return round(min(TOP1000_TEMPERATURE + climbed, BEST_NEIGHBOUR_TEMPERATURE), 2)
 
 
-ORCA_EMOJIS = {
-    "sick": "🤢",
-    "vexed": "😤",
-    "intrigued": "🤨",
-    "overexcited": "🤯",
-    "solar": "☀️",
-    "found": "☀️",
-}
-
-
 def get_daily_word(vocab: list[str], game_index: int = 0) -> str:
     """
     Deterministic word selection based on today's date and game_index.
@@ -126,61 +116,6 @@ def get_score(model: KeyedVectors, word: str, target: str) -> float:
     return round(float(model.similarity(word, target)) * 100, 2)
 
 
-def get_top1000(model: KeyedVectors, target: str) -> dict[str, int]:
-    """
-    Compute up to 1000 nearest neighbors of target.
-    Returns {word: rank} where rank=1 is the closest neighbor.
-    Target word itself is excluded.
-    """
-    topn = min(1000, len(model.key_to_index) - 1)
-    neighbors = model.most_similar(target, topn=topn)
-    return {word: rank + 1 for rank, (word, _) in enumerate(neighbors)}
-
-
-def get_orca_mood(rank: int | None, found: bool = False) -> str:
-    if found:
-        return "found"
-    if rank is None or rank > 1000:
-        return "sick"
-    if rank >= 551:
-        return "vexed"
-    if rank >= 176:
-        return "intrigued"
-    if rank >= 31:
-        return "overexcited"
-    return "solar"
-
-
-def get_proximity_label(rank: int | None, found: bool = False) -> str:
-    if found:
-        return "Trouvé"
-    if rank is None or rank > 1000:
-        return "Très loin"
-    if rank >= 551:
-        return "L'orque est vexé"
-    if rank >= 176:
-        return "L'orque s'intrigue"
-    if rank >= 31:
-        return "L'orque s'emballe"
-    return "L'orque devient solaire"
-
-
-def get_orca_beast_label(rank: int | None, found: bool = False) -> str:
-    mood = get_orca_mood(rank, found)
-    labels = {
-        "sick": "Malade",
-        "vexed": "Vexé",
-        "intrigued": "Intrigué",
-        "overexcited": "Surexcité",
-        "solar": "Solaire",
-        "found": "Solaire",
-    }
-    return labels[mood]
-
-
-def get_rank_label(rank: int | None, found: bool = False) -> str:
-    if found:
-        return "Mot mystère trouvé"
-    if rank is None or rank > 1000:
-        return "Hors top 1000"
-    return f"Voisin #{rank}"
+def rank_map(neighbours: list[tuple[str, float]]) -> dict[str, int]:
+    """Rang de chaque voisin dans une liste déjà calculée (rank=1 = plus proche)."""
+    return {word: rank + 1 for rank, (word, _) in enumerate(neighbours)}

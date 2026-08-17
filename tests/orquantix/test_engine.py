@@ -6,7 +6,7 @@ from games.orquantix.engine import (
     get_daily_word,
     get_difficulty,
     get_score,
-    get_top1000,
+    rank_map,
     temperature,
 )
 from games.orquantix.vocabulary import compute_difficulty_thresholds
@@ -68,20 +68,20 @@ def test_get_score_two_decimals():
     assert round(score, 2) == score
 
 
-def test_get_top1000_structure():
-    words = ["a", "b", "c", "d", "e"]
-    model = make_mock_model(words)
-    top = get_top1000(model, "a")
+def test_rank_map_structure():
+    # neighbours tel que le rend model.most_similar : le mot cible n'y
+    # figure jamais, donc rank_map n'a pas à l'exclure lui-même.
+    neighbours = [("b", 0.9), ("c", 0.7), ("d", 0.5), ("e", 0.3)]
+    top = rank_map(neighbours)
     assert isinstance(top, dict)
     assert "a" not in top
     assert all(isinstance(v, int) for v in top.values())
     assert min(top.values()) == 1
 
 
-def test_get_top1000_ranks_contiguous():
-    words = ["a", "b", "c", "d", "e"]
-    model = make_mock_model(words)
-    top = get_top1000(model, "a")
+def test_rank_map_ranks_contiguous():
+    neighbours = [("b", 0.9), ("c", 0.7), ("d", 0.5), ("e", 0.3)]
+    top = rank_map(neighbours)
     ranks = sorted(top.values())
     assert ranks == list(range(1, len(ranks) + 1))
 

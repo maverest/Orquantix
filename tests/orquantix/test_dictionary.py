@@ -22,22 +22,26 @@ from games.orquantix.dictionary import (
 )
 
 
+# Noms d'application vérifiés, du plus récent au plus ancien. Seule source :
+# _resolve_data_dir() et _CHECKED_PATHS (message de skip) en dérivent tous
+# les deux, pour ne jamais pouvoir diverger l'un de l'autre.
+_APP_NAMES = ("Procrastinator", "Orquantix", "Semantix")
+
+
 def _resolve_data_dir():
     """Resolve the Littré data directory.
 
     Checks the current app name first, then falls back to historical names
-    in order. Returns a tuple (path, found) where path is the resolved
-    directory and found is True if the data exists there.
-
-    Names checked, newest first: Procrastinator, Orquantix, Semantix
+    in order (see _APP_NAMES). Returns a tuple (path, found) where path is
+    the resolved directory and found is True if the data exists there.
     """
     base = Path.home() / "Library" / "Application Support"
-    for name in ("Procrastinator", "Orquantix", "Semantix"):
+    for name in _APP_NAMES:
         candidate = base / name
         if (candidate / "XMLittre.idx").exists():
             return candidate, True
     # Return the newest name even if not found, for consistent error reporting
-    return base / "Procrastinator", False
+    return base / _APP_NAMES[0], False
 
 
 REAL_DIR, REAL_AVAILABLE = _resolve_data_dir()
@@ -47,10 +51,8 @@ REAL_DIR, REAL_AVAILABLE = _resolve_data_dir()
 # test skipped, they can immediately tell "data not downloaded" (all paths
 # listed above were checked) from "data is there but in the wrong place"
 # (which would not reach this code at all).
-_CHECKED_PATHS = (
-    Path.home() / "Library" / "Application Support" / "Procrastinator",
-    Path.home() / "Library" / "Application Support" / "Orquantix",
-    Path.home() / "Library" / "Application Support" / "Semantix",
+_CHECKED_PATHS = tuple(
+    Path.home() / "Library" / "Application Support" / name for name in _APP_NAMES
 )
 _SKIP_REASON = (
     f"Littré non téléchargé (paths checked: "
@@ -454,7 +456,7 @@ def test_real_littre_sweep_has_no_residual_leak():
         # "s'écouler" sont des mots courants) : c'est parce que le jeu ne
         # peut structurellement jamais les choisir. Le filtre de
         # construction du vocabulaire (games/orquantix/vocabulary.py,
-        # _is_eligible_row) rejette d'emblée toute entrée Lexique383 dont
+        # _has_clean_form) rejette d'emblée toute entrée Lexique383 dont
         # la forme contient une apostrophe, quelle que soit sa fréquence —
         # aucun verbe pronominal, aucune locution avec élision, ne peut donc
         # jamais devenir le mot mystère. L'exclusion ci-dessous reste donc

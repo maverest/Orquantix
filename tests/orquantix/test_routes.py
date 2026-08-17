@@ -3,7 +3,7 @@ import threading
 import pytest
 from flask import Flask
 
-from games.orquantix.engine import TemperatureScale, get_top1000, get_neighbours
+from games.orquantix.engine import TemperatureScale, get_neighbours, rank_map
 from games.orquantix.routes import build_blueprint
 from games.orquantix.state import OrquantixState
 from games.orquantix.vocabulary import Pools, build_norm_map
@@ -25,7 +25,7 @@ def state():
     )
     s.norm_to_model = build_norm_map(VOCAB)
     s.neighbours = get_neighbours(model, "chien", topn=4)
-    s.top1000 = get_top1000(model, "chien")
+    s.top1000 = rank_map(s.neighbours)
     s.scale = TemperatureScale(floor=0.0, top1000=0.2, maximum=0.9)
     s.mystery_word = "chien"
     s.difficulty = 2

@@ -1,15 +1,15 @@
-/* Tokens partagés par PROCRASTINATOR et tous ses mini-jeux. */
+/* Déclaration prospective pour un futur menu PROCRASTINATOR (phase 2).
+   NON CONSOMMÉ AUJOURD'HUI : static/orquantix/style.css réinitialise
+   `* { margin: 0; padding: 0 }` et redéfinit le background/color/
+   font-family de body, ce qui écrase entièrement le bloc body ci-dessous.
+   Rien dans ce fichier n'est actuellement lu par un mini-jeu — ne pas le
+   prendre pour une couche partagée déjà en service. */
 :root {
   --bg: #faf9f7;
   --fg: #1c1b19;
   --muted: #6b6a67;
   --line: rgba(28, 27, 25, 0.14);
   --accent: #4a90e2;
-
-  --temp-cold: #8b9bb4;
-  --temp-cool: #e5c33c;
-  --temp-warm: #e8913f;
-  --temp-hot: #e0554e;
 
   --radius: 9px;
   --gap: 12px;
