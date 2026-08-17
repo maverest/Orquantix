@@ -948,8 +948,8 @@ body::before {
   color: #7b93a6;
 }
 body.dyslexic-mode .orca-panel {
-  background: linear-gradient(135deg, #fff7d6 0%, #ffe8ef 100%);
-  border-color: #e8bc66;
+  background: linear-gradient(135deg, rgba(255, 172, 64, 0.13) 0%, rgba(242, 106, 160, 0.10) 100%);
+  border-color: rgba(255, 172, 64, 0.42);
 }
 body.dyslexic-mode .orca-avatar {
   transform: rotate(-9deg) scale(1.08);
@@ -957,8 +957,14 @@ body.dyslexic-mode .orca-avatar {
     inset 0 0 0 1px rgba(16, 42, 67, 0.08),
     0 0 0 6px rgba(255, 172, 64, 0.14);
 }
+/* `filter` remplace entierement la valeur heritee : il faut donc repeter les
+   drop-shadow de la regle de base, sinon la mascotte perd son halo et
+   disparait dans le fond sombre. */
 body.dyslexic-mode .orca-avatar-image {
-  filter: saturate(1.25);
+  filter:
+    drop-shadow(0 0 16px rgba(255, 172, 64, 0.4))
+    drop-shadow(0 12px 18px rgba(2, 8, 18, 0.5))
+    saturate(1.25);
 }
 body.dyslexic-mode .orca-avatar::before {
   content: "🌀";
@@ -969,10 +975,11 @@ body.dyslexic-mode .orca-avatar::before {
 }
 body.dyslexic-mode .orca-bubble {
   font-style: italic;
-  color: #7a2e52;
+  color: #ffd9a8;
 }
 body.dyslexic-mode .orca-tool[data-orca-tool="neutral"] {
-  background: #fff6df;
+  background: rgba(255, 172, 64, 0.16);
+  border-color: rgba(255, 172, 64, 0.38);
 }
 
 /* ===== Guess table ===== */
