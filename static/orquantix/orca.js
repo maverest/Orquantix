@@ -206,49 +206,47 @@ function applyOrcaTool(toolName, forceMessage) {
   setOrcaState(currentOrcaMood, message);
 }
 
+// Table de déclaration : ajouter un easter egg = une entrée ici + son
+// balisage dans templates/orquantix/index.html. `onShow`/`onHide` sont
+// optionnels (ex : construire la pluie de kefir à la volée) ; `duration`
+// surcharge les 3200 ms par défaut pour les eggs qui ont besoin de plus
+// de temps (ex : la traversée du bateau de Charlie).
+const EASTER_EGGS = [
+  { id: 'easterShachi', triggers: ['shachi'] },
+  { id: 'easterMathieu', triggers: ['mathieu'] },
+  { id: 'easterConstance', triggers: ['constance'] },
+  { id: 'easterKefir', triggers: ['kefir'], onShow: buildKefirRain },
+  { id: 'easterVelo', triggers: ['velo', 'vélo'] },
+  { id: 'easterStLuc', triggers: ['st-luc', 'stluc', 'st luc'] },
+  { id: 'easterMullet', triggers: ['mullet'] },
+  { id: 'easterVoisin', triggers: ['voisin'] }
+];
+
 function triggerEasterEgg(word) {
   const normalized = String(word || '').trim().toLowerCase();
   const layer = document.getElementById('easterEggLayer');
-  const shachi = document.getElementById('easterShachi');
-  const mathieu = document.getElementById('easterMathieu');
-  const constance = document.getElementById('easterConstance');
-  const kefir = document.getElementById('easterKefir');
-  const velo = document.getElementById('easterVelo');
-  const stluc = document.getElementById('easterStLuc');
-  const mullet = document.getElementById('easterMullet');
-  const voisin = document.getElementById('easterVoisin');
 
-  shachi.classList.remove('active');
-  mathieu.classList.remove('active');
-  constance.classList.remove('active');
-  kefir.classList.remove('active');
-  velo.classList.remove('active');
-  stluc.classList.remove('active');
-  mullet.classList.remove('active');
-  voisin.classList.remove('active');
+  EASTER_EGGS.forEach(egg => {
+    const el = document.getElementById(egg.id);
+    if (el) el.classList.remove('active');
+  });
   layer.classList.remove('active');
 
-  let target = null;
-  if (normalized === 'shachi') target = shachi;
-  if (normalized === 'mathieu') target = mathieu;
-  if (normalized === 'constance') target = constance;
-  if (normalized === 'kefir') target = kefir;
-  if (normalized === 'velo' || normalized === 'vélo') target = velo;
-  if (normalized === 'st-luc' || normalized === 'stluc' || normalized === 'st luc') target = stluc;
-  if (normalized === 'mullet') target = mullet;
-  if (normalized === 'voisin') target = voisin;
+  const match = EASTER_EGGS.find(egg => egg.triggers.includes(normalized));
+  if (!match) return;
+
+  const target = document.getElementById(match.id);
   if (!target) return;
 
-  if (target === kefir) {
-    buildKefirRain();
-  }
+  if (match.onShow) match.onShow();
 
   layer.classList.add('active');
   target.classList.add('active');
   setTimeout(() => {
     target.classList.remove('active');
     layer.classList.remove('active');
-  }, 3200);
+    if (match.onHide) match.onHide();
+  }, match.duration || 3200);
 }
 
 function initOrcaDragAndDrop() {
