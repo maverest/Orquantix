@@ -2,7 +2,9 @@
 set -euo pipefail
 
 VENV=".venv_build"
-APP="Orquantix"
+APP="PROCRASTINATOR"
+# Pas d'icône PROCRASTINATOR pour l'instant : on garde l'icône Orquantix
+# existante plutôt que d'en inventer une.
 ICON="build_assets/Orquantix.icns"
 
 echo "=== Creating build virtualenv ==="

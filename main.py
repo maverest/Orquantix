@@ -77,7 +77,7 @@ def main() -> None:
     server_thread.start()
 
     if not wait_for_server(port):
-        print(f"[Orquantix] Server did not respond on port {port} within 15 s.")
+        print(f"[PROCRASTINATOR] Server did not respond on port {port} within 15 s.")
         return
 
     url = f"http://127.0.0.1:{port}"
