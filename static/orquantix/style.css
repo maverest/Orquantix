@@ -38,6 +38,131 @@ body::before {
   z-index: 0;
 }
 
+/* ===== Scène animée (Abysse) =====
+   Décor derrière le jeu : vagues, bateau, bulles, orque qui saute, fille
+   sur son rocher. Porté depuis abysse-scene.html (option A "Vivant"),
+   orque-dessin.html (option A "Profil complet") et v6-easter-eggs.html
+   (personnage corrigé — casquette noire, buste évasé).
+
+   Le saut de l'orque (sceneBreach) et la réaction de la fille
+   (girlExulte) partagent le même cycle de 9s, démarré sans délai : ils
+   restent synchronisés sans JS, la joie de la fille tombe pile sur
+   l'apex du saut. Ne jamais leur donner un animation-delay différent. */
+.scene-layer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 320px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.scene-sub {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.scene-sub.scene-front { z-index: 2; }
+
+/* --- vagues : trois vitesses de dérive --- */
+@keyframes sceneDrift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.scene-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 110px;
+}
+.scene-wave-1 { animation: sceneDrift 26s linear infinite; }
+.scene-wave-2 { animation: sceneDrift 17s linear infinite; }
+.scene-wave-3 { animation: sceneDrift 11s linear infinite; }
+
+/* --- bulles --- */
+@keyframes sceneRise {
+  from { transform: translateY(0) scale(.7); opacity: 0; }
+  18%  { opacity: .55; }
+  to   { transform: translateY(-260px) scale(1.15); opacity: 0; }
+}
+.scene-bubble {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(127, 227, 240, .35);
+  animation: sceneRise linear infinite;
+}
+
+/* --- bateau ambiant : tangage + dérive --- */
+@keyframes sceneSail { from { transform: translateX(-14%); } to { transform: translateX(112%); } }
+@keyframes sceneBob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50%      { transform: translateY(-5px) rotate(3deg); }
+}
+.scene-boat-track {
+  position: absolute;
+  bottom: 56px;
+  left: 0;
+  animation: sceneSail 44s linear infinite;
+}
+.scene-boat { animation: sceneBob 3.4s ease-in-out infinite; transform-origin: 50% 90%; }
+
+/* --- orque qui saute --- */
+@keyframes sceneBreach {
+  0%, 60%  { transform: translate(0,130px) rotate(-14deg); opacity: 0; }
+  67%      { transform: translate(10px,10px) rotate(-30deg); opacity: 1; }
+  76%      { transform: translate(26px,-34px) rotate(-6deg); opacity: 1; }
+  85%      { transform: translate(44px,6px) rotate(26deg); opacity: 1; }
+  93%, 100% { transform: translate(58px,130px) rotate(46deg); opacity: 0; }
+}
+.scene-breacher {
+  position: absolute;
+  bottom: 38px;
+  right: 18%;
+  animation: sceneBreach 9s ease-in-out infinite;
+}
+
+/* --- fille sur son rocher, bas gauche : fait face au saut, à droite --- */
+.scene-rock {
+  position: absolute;
+  bottom: 44px;
+  left: 26px;
+  z-index: 3;
+}
+@keyframes girlExulte {
+  0%, 66%  { transform: translateY(0); }
+  73%      { transform: translateY(-9px); }
+  80%      { transform: translateY(-1px); }
+  87%      { transform: translateY(-7px); }
+  94%, 100% { transform: translateY(0); }
+}
+@keyframes girlRespire {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1.2px); }
+}
+@keyframes girlCalme { 0%, 67% { opacity: 1; } 72%, 95% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes girlJoie  { 0%, 67% { opacity: 0; } 72%, 95% { opacity: 1; } 100% { opacity: 0; } }
+.scene-girl-perso { animation: girlExulte 9s ease-in-out infinite; transform-origin: 50% 100%; }
+.scene-girl-torse { animation: girlRespire 3.8s ease-in-out infinite; transform-origin: 50% 100%; }
+.scene-girl-calme { animation: girlCalme 9s ease-in-out infinite; }
+.scene-girl-joie  { animation: girlJoie 9s ease-in-out infinite; opacity: 0; }
+
+/* --- repli pour qui a désactivé les animations dans macOS ---
+   `animation: none` (et non animation-duration: 0) : on veut retomber
+   sur la position/opacité de repos déclarée hors keyframes, pas sauter
+   à la dernière image (qui est souvent invisible/hors-écran — orque et
+   bateau notamment finissent leur cycle à opacity:0 ou hors cadre). */
+@media (prefers-reduced-motion: reduce) {
+  .scene-layer, .scene-layer * {
+    animation: none !important;
+  }
+  /* .scene-girl-joie a déjà opacity:0 en dehors de l'animation (repli
+     naturel). .scene-girl-calme n'a pas de valeur statique équivalente
+     dans la maquette source : on la fixe ici pour garantir le visage
+     calme au repos plutôt que l'opacité par défaut du navigateur. */
+  .scene-girl-calme { opacity: 1; }
+  .scene-bubble { opacity: .4; }
+}
+
 /* ===== Easter eggs ===== */
 .easter-egg-layer {
   position: fixed;
