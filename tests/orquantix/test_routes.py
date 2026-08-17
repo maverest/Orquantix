@@ -3,7 +3,7 @@ import threading
 import pytest
 from flask import Flask
 
-from games.orquantix.engine import TemperatureScale, get_neighbours, rank_map
+from games.orquantix.engine import get_neighbours, rank_map
 from games.orquantix.routes import build_blueprint
 from games.orquantix.state import OrquantixState
 from games.orquantix.vocabulary import Pools, build_norm_map
@@ -26,7 +26,6 @@ def state():
     s.norm_to_model = build_norm_map(VOCAB)
     s.neighbours = get_neighbours(model, "chien", topn=4)
     s.top1000 = rank_map(s.neighbours)
-    s.scale = TemperatureScale(floor=0.0, top1000=0.2, maximum=0.9)
     s.mystery_word = "chien"
     s.difficulty = 2
     s.littre = None
@@ -48,10 +47,10 @@ def test_routes_are_namespaced_under_the_game(client):
     assert client.post("/guess", json={"word": "chat"}).status_code == 404
 
 
-def test_guess_returns_temperature_and_rank(client):
+def test_guess_returns_progress_and_rank(client):
     data = client.post("/games/orquantix/guess", json={"word": "chat"}).get_json()
 
-    assert "temperature" in data
+    assert "progress" in data
     assert "rank" in data
     assert "mood" in data
     assert data["win"] is False
@@ -61,7 +60,7 @@ def test_guess_the_mystery_word_wins_at_100_degrees(client):
     data = client.post("/games/orquantix/guess", json={"word": "chien"}).get_json()
 
     assert data["win"] is True
-    assert data["temperature"] == 100.0
+    assert data["progress"] == 100.0
     assert data["mood"] == "found"
 
 
@@ -82,7 +81,7 @@ def test_give_up_reveals_the_word(client):
 
     assert data["word"] == "chien"
     assert data["gave_up"] is True
-    assert data["temperature"] == 100.0
+    assert data["progress"] == 100.0
 
 
 def test_state_survives_between_requests(client):
@@ -234,7 +233,6 @@ def test_record_guess_against_stale_round_is_rejected(state):
         mystery_word="fleur",
         neighbours=state.neighbours,
         top1000=state.top1000,
-        scale=state.scale,
         difficulty=1,
     )
 
@@ -261,7 +259,6 @@ def test_start_new_round_bundles_index_and_round_fields(state):
         mystery_word="fleur",
         neighbours=[("arbre", 0.5)],
         top1000={"arbre": 1},
-        scale=state.scale,
         difficulty=4,
     )
 
@@ -289,7 +286,6 @@ def test_start_new_round_increments_are_never_lost_under_concurrency(state):
             mystery_word="chat",
             neighbours=[],
             top1000={},
-            scale=state.scale,
             difficulty=1,
         )
 

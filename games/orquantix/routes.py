@@ -26,9 +26,9 @@ def build_blueprint(state, on_load: Callable[[], None] | None = None) -> Bluepri
         return jsonify({"error": "not ready"}), 503
 
     def _record(
-        round_index: int, word: str, temperature: float, rank: int | None, *, win: bool, gave_up: bool
+        round_index: int, word: str, rank: int | None, *, win: bool, gave_up: bool
     ) -> dict:
-        entry = orca.feedback(temperature, rank, found=win)
+        entry = orca.feedback(rank, found=win)
         entry.update({"word": word, "win": win, "gave_up": gave_up})
         # round_index a été capturé avant tout calcul, côté route : si une
         # manche a démarré entre-temps, l'ajout est silencieusement
@@ -65,7 +65,7 @@ def build_blueprint(state, on_load: Callable[[], None] | None = None) -> Bluepri
         if state.phase != "ready":
             return _not_ready()
 
-        # Capturé avant toute lecture de mystery_word/scale/top1000 : si une
+        # Capturé avant toute lecture de mystery_word/top1000 : si une
         # nouvelle manche démarre pendant le traitement de cette requête,
         # round_index reste celui de la manche pour laquelle la réponse a
         # réellement été calculée (voir _record / OrquantixState.record_guess).
@@ -84,19 +84,17 @@ def build_blueprint(state, on_load: Callable[[], None] | None = None) -> Bluepri
         word = state.norm_to_model[norm]
 
         if normalize(state.mystery_word) == norm:
-            return jsonify(_record(round_index, state.mystery_word, 100.0, 1, win=True, gave_up=False))
+            return jsonify(_record(round_index, state.mystery_word, 1, win=True, gave_up=False))
 
-        similarity = float(state.model.similarity(word, state.mystery_word))
-        degrees = engine.temperature(state.scale, similarity)
         rank = state.top1000.get(word)
-        return jsonify(_record(round_index, word, degrees, rank, win=False, gave_up=False))
+        return jsonify(_record(round_index, word, rank, win=False, gave_up=False))
 
     @bp.route("/give-up", methods=["POST"])
     def give_up():
         if state.phase != "ready":
             return _not_ready()
         round_index = state.game_index
-        return jsonify(_record(round_index, state.mystery_word, 100.0, 1, win=True, gave_up=True))
+        return jsonify(_record(round_index, state.mystery_word, 1, win=True, gave_up=True))
 
     @bp.route("/suggest", methods=["POST"])
     def suggest():
@@ -169,7 +167,6 @@ def build_blueprint(state, on_load: Callable[[], None] | None = None) -> Bluepri
             mystery_word=word,
             neighbours=neighbours,
             top1000=engine.rank_map(neighbours),
-            scale=engine.build_temperature_scale(state.model, word, neighbours),
             difficulty=engine.get_difficulty(word, state.pools.mystery_freq, state.difficulty_thresholds),
         )
         return jsonify({"difficulty": state.difficulty, "word_length": len(word)})

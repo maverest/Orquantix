@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-# Seuils alignés sur le repère des 50° = entrée dans le top 1000.
-MOOD_THRESHOLDS: tuple[tuple[float, str], ...] = (
-    (20.0, "sick"),
-    (50.0, "vexed"),
-    (70.0, "intrigued"),
-    (88.0, "overexcited"),
-    (100.0, "solar"),
+from games.orquantix import engine
+
+# Bornes de rang, du plus lointain au plus proche. Un rang strictement
+# supérieur au seuil donne l'humeur associée ; hors du top 1000, c'est « sick ».
+MOOD_THRESHOLDS: tuple[tuple[int, str], ...] = (
+    (551, "vexed"),
+    (176, "intrigued"),
+    (31, "overexcited"),
+    (1, "solar"),
 )
 
 EMOJIS = {
@@ -37,12 +39,18 @@ PROXIMITY_LABELS = {
 }
 
 
-def mood_for(temperature: float, *, found: bool = False) -> str:
-    """Humeur de l'orque pour une température donnée."""
-    if found or temperature >= 100.0:
+def mood_for(rank: int | None, *, found: bool = False) -> str:
+    """Humeur de l'orque pour un rang de voisin donné.
+
+    Indexée sur le rang et non sur la barre de progression : la barre est
+    presque plate jusqu'au rang 300, alors que l'orque doit réagir bien avant.
+    """
+    if found:
         return "found"
-    for ceiling, mood in MOOD_THRESHOLDS:
-        if temperature < ceiling:
+    if rank is None or rank > 1000:
+        return "sick"
+    for floor, mood in MOOD_THRESHOLDS:
+        if rank >= floor:
             return mood
     return "solar"
 
@@ -68,11 +76,15 @@ def rank_label(rank: int | None, *, found: bool = False) -> str:
     return f"Voisin #{rank}"
 
 
-def feedback(temperature: float, rank: int | None, *, found: bool = False) -> dict:
-    """Tout ce dont le frontend a besoin pour afficher une ligne."""
-    mood = mood_for(temperature, found=found)
+def feedback(rank: int | None, *, found: bool = False) -> dict:
+    """Tout ce dont le frontend a besoin pour afficher une ligne.
+
+    La progression et l'humeur dérivent toutes deux du rang, seule mesure
+    dont le joueur a besoin : le cosinus brut n'est plus affiché nulle part.
+    """
+    mood = mood_for(rank, found=found)
     return {
-        "temperature": temperature,
+        "progress": engine.progress(rank, found=found),
         "rank": rank if (rank is not None and rank <= 1000) else None,
         "mood": mood,
         "emoji": emoji(mood),

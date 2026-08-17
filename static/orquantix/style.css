@@ -726,21 +726,21 @@ body.dyslexic-mode .orca-tool[data-orca-tool="neutral"] {
 .guess-word  { font-weight: 500; }
 
 /* ===== Colonnes température et rang ===== */
-.guess-temperature { min-width: 190px; }
+.guess-progress { min-width: 190px; }
 
-.temperature-row {
+.progress-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.temperature-value {
+.progress-value {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   min-width: 38px;
 }
 
-.temperature-bar {
+.progress-bar {
   flex: 1;
   height: 8px;
   border-radius: 99px;
@@ -748,18 +748,18 @@ body.dyslexic-mode .orca-tool[data-orca-tool="neutral"] {
   overflow: hidden;
 }
 
-.temperature-bar-fill {
+.progress-bar-fill {
   height: 100%;
   border-radius: 99px;
   transition: width 0.2s ease;
 }
 
-.orca-sick .temperature-bar-fill,
-.orca-vexed .temperature-bar-fill { background: var(--temp-cold); }
-.orca-intrigued .temperature-bar-fill { background: var(--temp-cool); }
-.orca-overexcited .temperature-bar-fill { background: var(--temp-warm); }
-.orca-solar .temperature-bar-fill,
-.orca-found .temperature-bar-fill { background: var(--temp-hot); }
+.orca-sick .progress-bar-fill,
+.orca-vexed .progress-bar-fill { background: var(--temp-cold); }
+.orca-intrigued .progress-bar-fill { background: var(--temp-cool); }
+.orca-overexcited .progress-bar-fill { background: var(--temp-warm); }
+.orca-solar .progress-bar-fill,
+.orca-found .progress-bar-fill { background: var(--temp-hot); }
 
 .rank-badge {
   display: inline-block;
@@ -784,7 +784,7 @@ body.dyslexic-mode .orca-tool[data-orca-tool="neutral"] {
   object-fit: contain;
 }
 .orca-found .guess-word,
-.orca-found .temperature-value {
+.orca-found .progress-value {
   color: #8a5800;
 }
 
@@ -881,7 +881,7 @@ body.dyslexic-mode .orca-tool[data-orca-tool="neutral"] {
     font-size: 0.87rem;
   }
 
-  .guess-temperature {
+  .guess-progress {
     min-width: 0;
   }
 

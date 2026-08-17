@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import threading
 
-from games.orquantix.engine import TemperatureScale
 from games.orquantix.vocabulary import Pools
 
 
@@ -28,7 +27,6 @@ class OrquantixState:
         self.model = None
         self.littre = None
         self.pools: Pools | None = None
-        self.scale: TemperatureScale | None = None
         self.neighbours: list[tuple[str, float]] = []
         self.top1000: dict[str, int] = {}
         self.norm_to_model: dict[str, str] = {}
@@ -76,7 +74,6 @@ class OrquantixState:
         mystery_word: str,
         neighbours: list[tuple[str, float]],
         top1000: dict[str, int],
-        scale: TemperatureScale,
         difficulty: int,
     ) -> int:
         """Démarre une nouvelle manche comme une seule transition atomique.
@@ -92,7 +89,6 @@ class OrquantixState:
             self.mystery_word = mystery_word
             self.neighbours = neighbours
             self.top1000 = top1000
-            self.scale = scale
             self.difficulty = difficulty
             self.guesses = []
             return self.game_index

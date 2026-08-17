@@ -1,86 +1,37 @@
 import hashlib
-from dataclasses import dataclass
 from datetime import date
 
-import numpy as np
 from gensim.models import KeyedVectors
 
-FOUND_TEMPERATURE = 100.0
-TOP1000_TEMPERATURE = 50.0
-BEST_NEIGHBOUR_TEMPERATURE = 99.0
+NEIGHBOURHOOD_SIZE = 1000
+PROGRESS_EXPONENT = 3.4
+FOUND_PROGRESS = 100.0
+MAX_NEIGHBOUR_PROGRESS = 99.99
 
 
-@dataclass(frozen=True)
-class TemperatureScale:
-    """Les trois ancres calibrant la température pour un mot mystère donné.
-
-    Le seuil du top 1000 varie fortement d'une cible à l'autre — 0.155 pour
-    « confiture », 0.196 pour « guerre » — donc une échelle fixe mentirait.
-    """
-
-    floor: float
-    top1000: float
-    maximum: float
-
-
-def get_neighbours(model, target: str, topn: int = 1000) -> list[tuple[str, float]]:
+def get_neighbours(model, target: str, topn: int = NEIGHBOURHOOD_SIZE) -> list[tuple[str, float]]:
     """Les voisins les plus proches, du plus proche au plus lointain."""
     limit = min(topn, len(model.key_to_index) - 1)
     return model.most_similar(target, topn=limit)
 
 
-def build_temperature_scale(model, target: str, neighbours: list[tuple[str, float]]) -> TemperatureScale:
-    """Calibre l'échelle sur la cible.
+def progress(rank: int | None, *, found: bool = False) -> float:
+    """Rang du voisin → pourcentage de progression.
 
-    Le plancher est la médiane des similarités de la cible contre tout le
-    vocabulaire : 91 % des mots vivent sous 0.10, donc sans plancher la
-    température serait écrasée en bas.
-    """
-    maximum = neighbours[0][1]
-    top1000 = neighbours[-1][1]
-    floor = _median_similarity(model, target)
-
-    # Garde-fou : les ancres doivent rester strictement croissantes.
-    # Réparer de haut en bas : fixer top1000 d'abord, puis floor.
-    if top1000 >= maximum:
-        top1000 = maximum * 0.5
-    if floor >= top1000:
-        floor = top1000 * 0.25
-
-    return TemperatureScale(floor=floor, top1000=top1000, maximum=maximum)
-
-
-def _median_similarity(model, target: str) -> float:
-    vectors = model.get_normed_vectors()
-    target_vector = vectors[model.key_to_index[target]]
-    similarities = vectors @ target_vector
-    return float(np.median(similarities))
-
-
-def temperature(scale: TemperatureScale, similarity: float, *, found: bool = False) -> float:
-    """Similarité cosinus → degrés.
-
-    0°   = aucun rapport
-    50°  = entrée dans le top 1000
-    99°  = le voisin le plus proche
-    100° = trouvé
+    Courbe volontairement très plate en bas : au rang 800 elle vaut 0,43 %,
+    au rang 400 environ 18 %, et elle ne décolle vraiment que dans le top 100.
+    C'est délibéré. Le top 1000 représente les 3,2 % de mots les plus proches
+    sur 31 548 — y entrer n'est pas « chaud », et un voisin de rang 800
+    n'apprend rien au joueur. Une échelle qui le montrerait à mi-hauteur
+    mentirait, et ferait de surcroît doublon avec la colonne Rang, qui dit
+    déjà qu'on est dans le top 1000.
     """
     if found:
-        return FOUND_TEMPERATURE
-
-    if similarity <= scale.floor:
+        return FOUND_PROGRESS
+    if rank is None or rank < 1 or rank > NEIGHBOURHOOD_SIZE:
         return 0.0
-
-    if similarity < scale.top1000:
-        span = scale.top1000 - scale.floor
-        return round(TOP1000_TEMPERATURE * (similarity - scale.floor) / span, 2)
-
-    span = scale.maximum - scale.top1000
-    if span <= 0:
-        return BEST_NEIGHBOUR_TEMPERATURE
-
-    climbed = (BEST_NEIGHBOUR_TEMPERATURE - TOP1000_TEMPERATURE) * (similarity - scale.top1000) / span
-    return round(min(TOP1000_TEMPERATURE + climbed, BEST_NEIGHBOUR_TEMPERATURE), 2)
+    ratio = (NEIGHBOURHOOD_SIZE + 1 - rank) / NEIGHBOURHOOD_SIZE
+    return round(min(ratio**PROGRESS_EXPONENT * 100, MAX_NEIGHBOUR_PROGRESS), 2)
 
 
 def get_daily_word(vocab: list[str], game_index: int = 0) -> str:

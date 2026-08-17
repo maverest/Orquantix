@@ -184,9 +184,9 @@ function activateGame() {
       guessCounter = 0;
 
       renderDifficulty(data.difficulty);
-      guesses = data.guesses.map((g, i) => ({...g, attempt: i + 1, temperatureAnimated: true}));
+      guesses = data.guesses.map((g, i) => ({...g, attempt: i + 1, progressAnimated: true}));
       guessCounter = guesses.length;
-      guesses.sort((a, b) => b.temperature - a.temperature);
+      guesses.sort((a, b) => b.progress - a.progress);
       renderTable();
 
       document.getElementById('guessInput').focus();
@@ -240,9 +240,9 @@ function submitWord(word) {
       guesses.push({
         ...data,
         attempt: ++guessCounter,
-        temperatureAnimated: false,
+        progressAnimated: false,
       });
-      guesses.sort((a, b) => b.temperature - a.temperature);
+      guesses.sort((a, b) => b.progress - a.progress);
       speakOrca(data.mood, data.mood);
       updateGiveUpButton();
       renderTable().then(() => {
@@ -263,9 +263,9 @@ function giveUp() {
       guesses.push({
         ...data,
         attempt: ++guessCounter,
-        temperatureAnimated: false,
+        progressAnimated: false,
       });
-      guesses.sort((a, b) => b.temperature - a.temperature);
+      guesses.sort((a, b) => b.progress - a.progress);
       updateGiveUpButton();
       if (orcaMode !== 'mute') {
         document.getElementById('orcaBubble').textContent = 'Bah alors, on abandonne ??';
@@ -294,15 +294,25 @@ function fetchSuggestion(word) {
     .catch(() => showError('Erreur réseau.'));
 }
 
-function animateTemperature(row, guess) {
-  const valueEl = row.querySelector('.temperature-value');
-  const fillEl = row.querySelector('.temperature-bar-fill');
-  const target = Math.max(0, Math.min(100, Number(guess.temperature) || 0));
+// La courbe est très plate en bas : au rang 800 elle vaut 0,43 %. Arrondir
+// à l'entier écraserait toute cette zone à « 0 % » et rendrait deux voisins
+// éloignés indistinguables, ce que l'affichage doit justement éviter.
+function formatProgress(value) {
+  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  if (v >= 10) return String(Math.round(v));
+  if (v >= 1) return v.toFixed(1);
+  return v.toFixed(2);
+}
 
-  guess.temperatureAnimated = true;
+function animateProgress(row, guess) {
+  const valueEl = row.querySelector('.progress-value');
+  const fillEl = row.querySelector('.progress-bar-fill');
+  const target = Math.max(0, Math.min(100, Number(guess.progress) || 0));
+
+  guess.progressAnimated = true;
 
   if (!valueEl || !fillEl || target <= 0) {
-    if (valueEl) valueEl.textContent = Math.round(target) + '°';
+    if (valueEl) valueEl.textContent = formatProgress(target) + '%';
     if (fillEl) fillEl.style.width = target + '%';
     return Promise.resolve();
   }
@@ -317,13 +327,13 @@ function animateTemperature(row, guess) {
       const ratio = Math.min((now - start) / duration, 1);
       const current = target * ratio;
       fillEl.style.width = current + '%';
-      valueEl.textContent = Math.round(current) + '°';
+      valueEl.textContent = formatProgress(current) + '%';
 
       if (ratio < 1) { requestAnimationFrame(step); return; }
 
       fillEl.classList.remove('is-animating');
       fillEl.style.width = target + '%';
-      valueEl.textContent = Math.round(target) + '°';
+      valueEl.textContent = formatProgress(target) + '%';
       resolve();
     }
 
@@ -338,18 +348,18 @@ function renderTable() {
 
   for (const g of guesses) {
     const tr = document.createElement('tr');
-    const shouldAnimate = g.temperatureAnimated !== true;
-    const shown = shouldAnimate ? 0 : g.temperature;
+    const shouldAnimate = g.progressAnimated !== true;
+    const shown = shouldAnimate ? 0 : g.progress;
 
     tr.className = 'guess-row orca-' + g.mood;
     tr.innerHTML =
       '<td class="guess-number">' + g.attempt + '</td>' +
       '<td class="guess-word">' + esc(g.word) + '</td>' +
-      '<td class="guess-temperature">' +
-        '<div class="temperature-row">' +
-          '<span class="temperature-value">' + Math.round(shown) + '°</span>' +
-          '<div class="temperature-bar">' +
-            '<div class="temperature-bar-fill" style="width:' + shown + '%"></div>' +
+      '<td class="guess-progress">' +
+        '<div class="progress-row">' +
+          '<span class="progress-value">' + Math.round(shown) + '°</span>' +
+          '<div class="progress-bar">' +
+            '<div class="progress-bar-fill" style="width:' + shown + '%"></div>' +
           '</div>' +
         '</div>' +
       '</td>' +
@@ -362,7 +372,7 @@ function renderTable() {
       '</td>';
 
     tbody.appendChild(tr);
-    if (shouldAnimate) animations.push(animateTemperature(tr, g));
+    if (shouldAnimate) animations.push(animateProgress(tr, g));
   }
 
   return Promise.all(animations);

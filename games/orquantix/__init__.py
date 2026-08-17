@@ -56,7 +56,6 @@ def load_resources(state: OrquantixState, data_dir: Path) -> None:
         mystery_word=word,
         neighbours=neighbours,
         top1000=engine.rank_map(neighbours),
-        scale=engine.build_temperature_scale(model, word, neighbours),
         difficulty=engine.get_difficulty(word, pools.mystery_freq, thresholds),
         guesses=[],
         phase="ready",
