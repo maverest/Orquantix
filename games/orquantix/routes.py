@@ -16,10 +16,16 @@ def build_blueprint(state) -> Blueprint:
     def _not_ready():
         return jsonify({"error": "not ready"}), 503
 
-    def _record(word: str, temperature: float, rank: int | None, *, win: bool, gave_up: bool) -> dict:
+    def _record(
+        round_index: int, word: str, temperature: float, rank: int | None, *, win: bool, gave_up: bool
+    ) -> dict:
         entry = orca.feedback(temperature, rank, found=win)
         entry.update({"word": word, "win": win, "gave_up": gave_up})
-        state.guesses.append(entry)
+        # round_index a été capturé avant tout calcul, côté route : si une
+        # manche a démarré entre-temps, l'ajout est silencieusement
+        # abandonné (voir OrquantixState.record_guess) plutôt que de muter
+        # la liste de la nouvelle manche ou un objet déjà remplacé.
+        state.record_guess(round_index, entry)
         return entry
 
     @bp.route("/")
@@ -32,6 +38,8 @@ def build_blueprint(state) -> Blueprint:
 
     @bp.route("/session")
     def session():
+        if state.phase != "ready":
+            return _not_ready()
         return jsonify(
             {
                 "difficulty": state.difficulty,
@@ -46,6 +54,12 @@ def build_blueprint(state) -> Blueprint:
         if state.phase != "ready":
             return _not_ready()
 
+        # Capturé avant toute lecture de mystery_word/scale/top1000 : si une
+        # nouvelle manche démarre pendant le traitement de cette requête,
+        # round_index reste celui de la manche pour laquelle la réponse a
+        # réellement été calculée (voir _record / OrquantixState.record_guess).
+        round_index = state.game_index
+
         payload = request.get_json(silent=True)
         if not payload or "word" not in payload:
             return jsonify({"error": "missing word"}), 400
@@ -59,18 +73,19 @@ def build_blueprint(state) -> Blueprint:
         word = state.norm_to_model[norm]
 
         if normalize(state.mystery_word) == norm:
-            return jsonify(_record(state.mystery_word, 100.0, 1, win=True, gave_up=False))
+            return jsonify(_record(round_index, state.mystery_word, 100.0, 1, win=True, gave_up=False))
 
         similarity = float(state.model.similarity(word, state.mystery_word))
         degrees = engine.temperature(state.scale, similarity)
         rank = state.top1000.get(word)
-        return jsonify(_record(word, degrees, rank, win=False, gave_up=False))
+        return jsonify(_record(round_index, word, degrees, rank, win=False, gave_up=False))
 
     @bp.route("/give-up", methods=["POST"])
     def give_up():
         if state.phase != "ready":
             return _not_ready()
-        return jsonify(_record(state.mystery_word, 100.0, 1, win=True, gave_up=True))
+        round_index = state.game_index
+        return jsonify(_record(round_index, state.mystery_word, 100.0, 1, win=True, gave_up=True))
 
     @bp.route("/suggest", methods=["POST"])
     def suggest():
@@ -129,17 +144,22 @@ def build_blueprint(state) -> Blueprint:
         if state.phase != "ready":
             return _not_ready()
 
-        state.game_index += 1
-        word = engine.get_daily_word(state.pools.mystery_words, state.game_index)
+        # Le mot du prochain tour se calcule à partir de l'index à venir ;
+        # pools/model sont immuables une fois phase == "ready" (posés une
+        # fois par le loader), donc les lire ici sans verrou est sûr. Seule
+        # la transition elle-même (incrément + remplacement des champs de
+        # la manche) doit être atomique — c'est start_new_round qui s'en
+        # charge (finding 2 : plus de game_index += 1 séparé du reste).
+        next_index = state.game_index + 1
+        word = engine.get_daily_word(state.pools.mystery_words, next_index)
         neighbours = engine.get_neighbours(state.model, word)
 
-        state.update(
+        state.start_new_round(
             mystery_word=word,
             neighbours=neighbours,
             top1000={w: i + 1 for i, (w, _) in enumerate(neighbours)},
             scale=engine.build_temperature_scale(state.model, word, neighbours),
             difficulty=engine.get_difficulty(word, state.pools.mystery_freq, state.difficulty_thresholds),
-            guesses=[],
         )
         return jsonify({"difficulty": state.difficulty, "word_length": len(word)})
 

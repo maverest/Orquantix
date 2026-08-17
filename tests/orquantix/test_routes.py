@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 from flask import Flask
 
@@ -185,3 +187,116 @@ def test_new_game_response_has_difficulty_and_word_length(client):
     data = client.post("/games/orquantix/new-game").get_json()
     assert 1 <= data["difficulty"] <= 5
     assert data["word_length"] > 0
+
+
+# Fix pass — concurrence (review findings 1, 2, 3).
+#
+# Findings 1 et 2 dénoncent des mutations qui contournent state._lock :
+# state.guesses.append() en dehors du verrou, et state.game_index += 1
+# séparé de la mise à jour du reste de la manche. Les tests ci-dessous
+# pilotent directement OrquantixState (pas seulement les routes HTTP) pour
+# vérifier le contrat des nouvelles méthodes atomiques.
+
+
+def test_session_refuses_when_not_ready(state):
+    # Le seul frère sans garde de phase (finding 3) — le frontend distingue
+    # "pas encore prêt" de "partie vide" via ce statut.
+    state.phase = "loading"
+    app = Flask(__name__)
+    app.register_blueprint(build_blueprint(state))
+    app.config["TESTING"] = True
+
+    with app.test_client() as c:
+        resp = c.get("/games/orquantix/session")
+        assert resp.status_code == 503
+        assert resp.get_json() == {"error": "not ready"}
+
+
+def test_session_returns_payload_when_ready(client):
+    data = client.get("/games/orquantix/session").get_json()
+    assert data["difficulty"] == 2
+    assert data["word_length"] == 5
+    assert data["guesses"] == []
+    assert data["resolved"] is False
+
+
+def test_record_guess_against_stale_round_is_rejected(state):
+    # Reproduction structurelle du finding 1 : une réponse calculée pour
+    # l'ancienne manche (round_index capturé avant la transition) ne doit
+    # jamais apparaître dans la liste de la nouvelle manche, ni avoir été
+    # ajoutée à un objet que l'état a déjà abandonné. Une vraie course sur le
+    # découpage exact "lecture de l'attribut, puis .append()" n'est pas
+    # reproductible de façon fiable sans forcer artificiellement
+    # l'ordonnancement des threads (il faudrait un sleep entre les deux
+    # bytecodes) — on vérifie donc directement le contrat de la méthode.
+    stale_round = state.game_index
+    state.start_new_round(
+        mystery_word="fleur",
+        neighbours=state.neighbours,
+        top1000=state.top1000,
+        scale=state.scale,
+        difficulty=1,
+    )
+
+    recorded = state.record_guess(stale_round, {"word": "chien", "win": False, "gave_up": False})
+
+    assert recorded is False
+    assert state.guesses == []
+
+
+def test_record_guess_for_the_current_round_still_works(state):
+    current_round = state.game_index
+    recorded = state.record_guess(current_round, {"word": "chat", "win": False, "gave_up": False})
+
+    assert recorded is True
+    assert state.guesses == [{"word": "chat", "win": False, "gave_up": False}]
+
+
+def test_start_new_round_bundles_index_and_round_fields(state):
+    # Finding 2 : game_index et les champs de la manche doivent changer
+    # comme un seul geste — on vérifie qu'un unique appel les met tous à
+    # jour ensemble, et que la valeur renvoyée est le nouvel index.
+    before_index = state.game_index
+    new_index = state.start_new_round(
+        mystery_word="fleur",
+        neighbours=[("arbre", 0.5)],
+        top1000={"arbre": 1},
+        scale=state.scale,
+        difficulty=4,
+    )
+
+    assert new_index == before_index + 1
+    assert state.game_index == new_index
+    assert state.mystery_word == "fleur"
+    assert state.neighbours == [("arbre", 0.5)]
+    assert state.top1000 == {"arbre": 1}
+    assert state.difficulty == 4
+    assert state.guesses == []
+
+
+def test_start_new_round_increments_are_never_lost_under_concurrency(state):
+    # Vraie course, reproductible de façon fiable : sans un verrou qui
+    # couvre tout l'incrément, "x += 1" lu-modifié-écrit par de nombreux
+    # threads perd des incréments sous contention (le GIL peut changer de
+    # thread entre le LOAD et le STORE du bytecode). Le barrier aligne le
+    # départ des threads pour maximiser la contention.
+    threads_n = 25
+    barrier = threading.Barrier(threads_n)
+
+    def bump():
+        barrier.wait()
+        state.start_new_round(
+            mystery_word="chat",
+            neighbours=[],
+            top1000={},
+            scale=state.scale,
+            difficulty=1,
+        )
+
+    threads = [threading.Thread(target=bump) for _ in range(threads_n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert state.game_index == threads_n
