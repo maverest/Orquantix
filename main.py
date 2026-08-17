@@ -25,18 +25,28 @@ def wait_for_server(port: int, timeout: float = 15.0) -> bool:
 
 
 def get_data_dir() -> Path:
-    app_support = Path.home() / "Library" / "Application Support"
-    preferred = app_support / "Orquantix"
-    legacy = app_support / "Semantix"
+    """Dossier de données, en migrant les noms historiques.
 
-    if preferred.exists() or not legacy.exists():
+    Sans cette migration, renommer l'application ferait retélécharger
+    environ 180 Mo à chaque utilisateur.
+    """
+    support = Path.home() / "Library" / "Application Support"
+    preferred = support / "Procrastinator"
+    legacy_names = ("Orquantix", "Semantix")
+
+    if preferred.exists():
         return preferred
 
-    try:
-        legacy.rename(preferred)
-        return preferred
-    except OSError:
-        return legacy
+    for name in legacy_names:
+        legacy = support / name
+        if legacy.exists():
+            try:
+                legacy.rename(preferred)
+                return preferred
+            except OSError:
+                return legacy
+
+    return preferred
 
 
 def main() -> None:
@@ -80,7 +90,7 @@ def main() -> None:
         # Open in native window (no browser needed)
         import webview
         window = webview.create_window(
-            title="Orquantix",
+            title="PROCRASTINATOR",
             url=url,
             width=720,
             height=900,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -8,10 +9,39 @@ import requests
 if TYPE_CHECKING:
     from games.orquantix.state import OrquantixState
 
-LEXIQUE_URL = "http://www.lexique.org/databases/Lexique383/Lexique383.tsv"
-LEXIQUE_FILENAME = "Lexique383.tsv"
-MODEL_URL = "https://embeddings.net/embeddings/frWiki_no_phrase_no_postag_1000_skip_cut200.bin"
-MODEL_FILENAME = "frWiki_no_phrase_no_postag_1000_skip_cut200.bin"
+
+@dataclass(frozen=True)
+class Download:
+    url: str
+    filename: str
+    share: int  # part de la barre de progression globale
+
+
+DOWNLOADS: tuple[Download, ...] = (
+    Download(
+        url="http://www.lexique.org/databases/Lexique383/Lexique383.tsv",
+        filename="Lexique383.tsv",
+        share=14,
+    ),
+    Download(
+        url="https://embeddings.net/embeddings/frWiki_no_phrase_no_postag_1000_skip_cut200.bin",
+        filename="frWiki_no_phrase_no_postag_1000_skip_cut200.bin",
+        share=70,
+    ),
+    Download(
+        url="https://archive.org/download/XMLittre.dict/XMLittre.dict.dz",
+        filename="XMLittre.dict.dz",
+        share=15,
+    ),
+    Download(
+        url="https://archive.org/download/XMLittre.dict/XMLittre.idx",
+        filename="XMLittre.idx",
+        share=1,
+    ),
+)
+
+LEXIQUE_FILENAME = DOWNLOADS[0].filename
+MODEL_FILENAME = DOWNLOADS[1].filename
 
 
 def download_file(
@@ -68,29 +98,23 @@ def download_file(
 
 
 def missing_files(data_dir: Path) -> list[str]:
-    """Les fichiers requis qui ne sont pas encore sur le disque."""
-    required = (LEXIQUE_FILENAME, MODEL_FILENAME)
-    return [name for name in required if not (data_dir / name).exists()]
+    """Les fichiers déclarés qui ne sont pas encore sur le disque."""
+    return [spec.filename for spec in DOWNLOADS if not (data_dir / spec.filename).exists()]
 
 
 def download_all(state: "OrquantixState", data_dir: Path) -> None:
-    """
-    Download Lexique383 (if missing) then model (if missing).
-    Updates state.progress and state.detail throughout.
-    Lexique = 0→5%, model = 5→100%.
-    """
+    """Télécharge les fichiers manquants, en répartissant la progression."""
+
     def on_progress(pct: int, detail: str) -> None:
         state.update(progress=pct, detail=detail)
 
-    lexique_path = data_dir / LEXIQUE_FILENAME
-    model_path = data_dir / MODEL_FILENAME
-
-    if not lexique_path.exists():
-        on_progress(0, "Téléchargement de Lexique383…")
-        download_file(LEXIQUE_URL, lexique_path, on_progress, 0, 5)
-
-    if not model_path.exists():
-        on_progress(5, "Téléchargement du modèle Word2Vec…")
-        download_file(MODEL_URL, model_path, on_progress, 5, 100)
+    start = 0
+    for spec in DOWNLOADS:
+        end = start + spec.share
+        destination = data_dir / spec.filename
+        if not destination.exists():
+            on_progress(start, f"Téléchargement de {spec.filename}…")
+            download_file(spec.url, destination, on_progress, start, end)
+        start = end
 
     on_progress(100, "Téléchargement terminé.")
