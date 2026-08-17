@@ -21,8 +21,41 @@ from games.orquantix.dictionary import (
     _PHONETIC_PAREN,
 )
 
-REAL_DIR = Path.home() / "Library" / "Application Support" / "Orquantix"
-REAL_AVAILABLE = (REAL_DIR / "XMLittre.idx").exists()
+
+def _resolve_data_dir():
+    """Resolve the Littré data directory.
+
+    Checks the current app name first, then falls back to historical names
+    in order. Returns a tuple (path, found) where path is the resolved
+    directory and found is True if the data exists there.
+
+    Names checked, newest first: Procrastinator, Orquantix, Semantix
+    """
+    base = Path.home() / "Library" / "Application Support"
+    for name in ("Procrastinator", "Orquantix", "Semantix"):
+        candidate = base / name
+        if (candidate / "XMLittre.idx").exists():
+            return candidate, True
+    # Return the newest name even if not found, for consistent error reporting
+    return base / "Procrastinator", False
+
+
+REAL_DIR, REAL_AVAILABLE = _resolve_data_dir()
+
+# If data is not found, construct a helpful skip message listing which paths
+# were checked. This guards against future silent skips: if a reader sees this
+# test skipped, they can immediately tell "data not downloaded" (all paths
+# listed above were checked) from "data is there but in the wrong place"
+# (which would not reach this code at all).
+_CHECKED_PATHS = (
+    Path.home() / "Library" / "Application Support" / "Procrastinator",
+    Path.home() / "Library" / "Application Support" / "Orquantix",
+    Path.home() / "Library" / "Application Support" / "Semantix",
+)
+_SKIP_REASON = (
+    f"Littré non téléchargé (paths checked: "
+    f"{', '.join(str(p) for p in _CHECKED_PATHS)})"
+)
 
 
 def test_fold_uppercases_and_strips_accents():
@@ -342,7 +375,7 @@ def test_littre_lookup_cleans_the_entry(tmp_path):
     assert "Fruits cuits" in definition
 
 
-@pytest.mark.skipif(not REAL_AVAILABLE, reason="Littré non téléchargé")
+@pytest.mark.skipif(not REAL_AVAILABLE, reason=_SKIP_REASON)
 def test_real_littre_never_leaks_the_word():
     littre = Littre(REAL_DIR / "XMLittre.idx", REAL_DIR / "XMLittre.dict.dz")
 
@@ -381,7 +414,7 @@ _LEADING_STRUCTURE_PATTERNS = (
 )
 
 
-@pytest.mark.skipif(not REAL_AVAILABLE, reason="Littré non téléchargé")
+@pytest.mark.skipif(not REAL_AVAILABLE, reason=_SKIP_REASON)
 def test_real_littre_sweep_has_no_residual_leak():
     littre = Littre(REAL_DIR / "XMLittre.idx", REAL_DIR / "XMLittre.dict.dz")
     index = load_index(REAL_DIR / "XMLittre.idx")
@@ -469,7 +502,7 @@ _REAL_SWEEP_POOL_SHAPED_SEED = 20260816
 _REAL_SWEEP_POOL_SHAPED_SAMPLE_SIZE = 8000
 
 
-@pytest.mark.skipif(not REAL_AVAILABLE, reason="Littré non téléchargé")
+@pytest.mark.skipif(not REAL_AVAILABLE, reason=_SKIP_REASON)
 def test_real_littre_sweep_pool_shaped_keys_have_no_leak():
     littre = Littre(REAL_DIR / "XMLittre.idx", REAL_DIR / "XMLittre.dict.dz")
     index = load_index(REAL_DIR / "XMLittre.idx")
