@@ -1,0 +1,179 @@
+<h2>Charlie sur le bateau</h2>
+<p class="subtitle">
+  Maquette <strong>interactive</strong> : le bateau traverse, et Charlie est à bord.
+  Clique dessus. Le bouton en dessous force une nouvelle traversée pour retester.
+</p>
+
+<style>
+  .sea { position:relative; height:270px; border-radius:14px; overflow:hidden;
+         background:linear-gradient(175deg,#060d18 0%,#0b1a2e 45%,#102844 100%); }
+  .lay { position:absolute; inset:0; pointer-events:none; }
+  .lay.f { z-index:3; }
+  @keyframes drift { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+  .wv { position:absolute; bottom:0; left:0; width:200%; height:100px; }
+  .w1{animation:drift 26s linear infinite} .w3{animation:drift 11s linear infinite}
+
+  @keyframes sail { from{transform:translateX(-16%)} to{transform:translateX(114%)} }
+  @keyframes bob { 0%,100%{transform:translateY(0) rotate(-3deg)} 50%{transform:translateY(-5px) rotate(3deg)} }
+  .track { position:absolute; bottom:52px; left:0; z-index:2; animation:sail 20s linear infinite; }
+  .boat { animation:bob 3.4s ease-in-out infinite; transform-origin:50% 90%;
+          cursor:pointer; pointer-events:auto; }
+  .boat:hover { filter: drop-shadow(0 0 8px rgba(255,255,255,.35)); }
+
+  .ui { position:relative; z-index:4; padding:18px; color:#e8f1f8; pointer-events:none; }
+  .t { font-family:"Avenir Next",sans-serif; font-weight:800; text-transform:uppercase;
+       letter-spacing:.16em; font-size:24px; color:#7fe3f0;
+       text-shadow:0 0 22px rgba(127,227,240,.45); margin:0 0 12px; }
+  .r { display:grid; grid-template-columns:1fr 90px 46px; gap:8px; align-items:center;
+       font-size:11px; padding:5px 0; border-bottom:1px solid rgba(127,227,240,.09); }
+  .bar{height:6px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+  .bar>i{display:block;height:100%;border-radius:99px}
+  .n{font-variant-numeric:tabular-nums;font-size:10px;text-align:right;opacity:.8}
+
+  /* --- celebration --- */
+  .party { position:absolute; inset:0; z-index:9; display:none; pointer-events:none; }
+  .party.on { display:block; }
+  .banner { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%) scale(.6);
+            text-align:center; opacity:0; animation: pop .6s cubic-bezier(.2,1.6,.4,1) forwards; }
+  @keyframes pop { to { opacity:1; transform:translate(-50%,-50%) scale(1); } }
+  .banner b { display:block; font-family:"Avenir Next",sans-serif; font-weight:800;
+              font-size:19px; letter-spacing:.06em; color:#ffd23f; line-height:1.25;
+              text-shadow:0 2px 0 #7a3b00, 0 0 26px rgba(255,210,63,.6); }
+  .banner small { display:block; margin-top:8px; font-size:10px; letter-spacing:.16em;
+                  text-transform:uppercase; color:#7fe3f0; opacity:.85; }
+
+  @keyframes fall { to { transform: translateY(300px) rotate(var(--spin)); opacity:0; } }
+  .cf { position:absolute; width:7px; height:11px; border-radius:1px;
+        animation: fall 1.9s ease-in forwards; }
+  @keyframes twinkle { 0%{transform:scale(0) rotate(0);opacity:0}
+                       40%{transform:scale(1.25) rotate(35deg);opacity:1}
+                       100%{transform:scale(0) rotate(90deg);opacity:0} }
+  .st { position:absolute; animation: twinkle 1.5s ease-out forwards; }
+
+  .ctl { margin-top:12px; display:flex; gap:8px; align-items:center; }
+  .btn { font-size:11px; padding:6px 12px; border-radius:7px; cursor:pointer;
+         border:1px solid rgba(128,128,128,.35); background:transparent; color:inherit; }
+  .cap { font-size:11px; opacity:.62; line-height:1.55; margin-top:10px; }
+</style>
+
+<div class="sea" id="sea">
+  <div class="lay">
+    <svg class="wv w1" viewBox="0 0 1200 100" preserveAspectRatio="none">
+      <path d="M0,50 C150,18 300,82 450,50 C600,18 750,82 900,50 C1050,18 1125,68 1200,50 L1200,100 L0,100Z" fill="#123a5e" opacity=".55"/>
+    </svg>
+  </div>
+
+  <div class="track" id="track">
+    <svg class="boat" id="boat" width="86" height="68" viewBox="0 0 86 68" fill="none">
+      <!-- coque -->
+      <path d="M10,50 h58 l-7,12 H17 z" fill="#7fe3f0" opacity=".9"/>
+      <!-- mat + voiles -->
+      <path d="M42,10 v40" stroke="#7fe3f0" stroke-width="2" opacity=".75"/>
+      <path d="M44,13 l19,20 H44 z" fill="#7fe3f0" opacity=".5"/>
+      <path d="M40,18 L24,36 h16 z" fill="#7fe3f0" opacity=".32"/>
+
+      <!-- CHARLIE -->
+      <g id="charlie">
+        <!-- jambes -->
+        <path d="M28,50 v-6 M34,50 v-6" stroke="#1f4b8f" stroke-width="3" stroke-linecap="round"/>
+        <!-- torse raye -->
+        <rect x="25" y="33" width="12" height="12" rx="2.5" fill="#eaf4fb"/>
+        <path d="M25,35.5h12M25,39h12M25,42.5h12" stroke="#e03131" stroke-width="2"/>
+        <!-- bras -->
+        <path d="M25,36 l-5,5" stroke="#eaf4fb" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M37,36 l5,5" stroke="#eaf4fb" stroke-width="2.6" stroke-linecap="round"/>
+        <!-- tete -->
+        <circle cx="31" cy="27" r="5.2" fill="#f6d9be"/>
+        <!-- lunettes -->
+        <circle cx="29" cy="27" r="1.9" fill="none" stroke="#22303b" stroke-width=".9"/>
+        <circle cx="33.4" cy="27" r="1.9" fill="none" stroke="#22303b" stroke-width=".9"/>
+        <path d="M30.9,27h1.6" stroke="#22303b" stroke-width=".9"/>
+        <!-- bonnet raye a pompon -->
+        <path d="M25.6,24 a5.6,5.6 0 0 1 10.8,0 z" fill="#eaf4fb"/>
+        <path d="M26.2,22.6h9.6M27.6,20.6h6.8" stroke="#e03131" stroke-width="1.6"/>
+        <circle cx="31" cy="17.4" r="2" fill="#e03131"/>
+        <!-- cheveux -->
+        <path d="M26.4,28.6 a5,5 0 0 0 1.4,2.4" stroke="#6b3b18" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M35.6,28.6 a5,5 0 0 1 -1.4,2.4" stroke="#6b3b18" stroke-width="1.4" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="lay f">
+    <svg class="wv w3" viewBox="0 0 1200 100" preserveAspectRatio="none">
+      <path d="M0,74 C200,52 340,96 520,74 C700,54 860,96 1040,74 C1120,64 1170,82 1200,74 L1200,100 L0,100Z" fill="#071827"/>
+    </svg>
+  </div>
+
+  <div class="ui">
+    <div class="t">Orquantix</div>
+    <div class="r"><b>angleterre</b><div class="bar"><i style="width:99%;background:#7fe3f0"></i></div><span class="n">99.99%</span></div>
+    <div class="r"><b>canadien</b><div class="bar"><i style="width:70%;background:#5ec8e5"></i></div><span class="n">70.16%</span></div>
+    <div class="r"><b>archibald</b><div class="bar"><i style="width:1%;background:#4a5f7a"></i></div><span class="n">0.43%</span></div>
+  </div>
+
+  <div class="party" id="party"></div>
+</div>
+
+<div class="ctl">
+  <button class="btn" onclick="relance()">↻ Refaire passer le bateau</button>
+  <span class="cap" style="margin:0">Clique sur Charlie pendant la traversée.</span>
+</div>
+
+<p class="cap">
+  Dans le jeu, le bateau passe <strong>sans Charlie la plupart du temps</strong> — il n'embarque que
+  très rarement. Ici il est à bord à chaque passage pour que tu puisses juger le dessin et
+  l'animation. La fréquence est un simple réglage : voir la question en dessous.
+</p>
+
+<script>
+  const COULEURS = ['#ffd23f','#7fe3f0','#e03131','#eaf4fb','#5ec8e5','#ff8fab'];
+
+  function etoile(x, y, taille, delai) {
+    const s = document.createElement('div');
+    s.className = 'st';
+    s.style.left = x + 'px'; s.style.top = y + 'px';
+    s.style.animationDelay = delai + 'ms';
+    s.innerHTML = '<svg width="' + taille + '" height="' + taille + '" viewBox="0 0 24 24">' +
+      '<path d="M12,0 L14.4,9.6 L24,12 L14.4,14.4 L12,24 L9.6,14.4 L0,12 L9.6,9.6 Z" fill="#ffd23f"/></svg>';
+    return s;
+  }
+
+  function fete() {
+    const p = document.getElementById('party');
+    p.innerHTML = '';
+    p.classList.add('on');
+
+    const b = document.createElement('div');
+    b.className = 'banner';
+    b.innerHTML = '<b>TRÈS RARE SONT CEUX<br>QUI TROUVENT CHARLI</b><small>tu l\'as vu</small>';
+    p.appendChild(b);
+
+    const L = p.clientWidth, H = p.clientHeight;
+    for (let i = 0; i < 70; i++) {
+      const c = document.createElement('div');
+      c.className = 'cf';
+      c.style.left = Math.random() * L + 'px';
+      c.style.top = (-20 - Math.random() * 60) + 'px';
+      c.style.background = COULEURS[i % COULEURS.length];
+      c.style.setProperty('--spin', (Math.random() * 900 - 450) + 'deg');
+      c.style.animationDelay = (Math.random() * 550) + 'ms';
+      c.style.animationDuration = (1500 + Math.random() * 900) + 'ms';
+      p.appendChild(c);
+    }
+    for (let i = 0; i < 16; i++) {
+      p.appendChild(etoile(Math.random() * L, Math.random() * H * .8,
+                           10 + Math.random() * 16, Math.random() * 900));
+    }
+    setTimeout(() => { p.classList.remove('on'); p.innerHTML = ''; }, 3400);
+  }
+
+  function relance() {
+    const t = document.getElementById('track');
+    t.style.animation = 'none';
+    void t.offsetWidth;
+    t.style.animation = 'sail 20s linear infinite';
+  }
+
+  document.getElementById('boat').addEventListener('click', fete);
+</script>

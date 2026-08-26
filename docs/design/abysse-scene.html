@@ -1,0 +1,180 @@
+<h2>Abysse — la scène animée</h2>
+<p class="subtitle">
+  Vagues en bas, bateau, orque qui saute, bulles sur le côté. Tout est en SVG dessiné dans la page —
+  aucun asset à produire, ça reste net à n'importe quelle taille et ça pèse quelques kilo-octets.
+  Deux intensités, parce qu'un fond trop vivant rend un tableau de mots pénible à lire.
+</p>
+
+<style>
+  .scene { position: relative; height: 300px; border-radius: 14px; overflow: hidden;
+           background: linear-gradient(175deg,#060d18 0%,#0b1a2e 45%,#102844 100%); }
+  .scene .ui { position: relative; z-index: 3; padding: 20px 18px; color:#e8f1f8; }
+  .scene .t { font-family:"Avenir Next","Helvetica Neue",sans-serif; font-weight:800;
+              text-transform:uppercase; letter-spacing:.16em; font-size:26px; color:#7fe3f0;
+              text-shadow:0 0 22px rgba(127,227,240,.45); margin:0 0 12px; }
+  .scene .r { display:grid; grid-template-columns:1fr 90px 44px; gap:8px; align-items:center;
+              font-size:11px; padding:5px 0; border-bottom:1px solid rgba(127,227,240,.09); }
+  .scene .bar { height:6px; border-radius:99px; background:rgba(255,255,255,.07); overflow:hidden; }
+  .scene .bar>i { display:block; height:100%; border-radius:99px; }
+  .n { font-variant-numeric:tabular-nums; font-size:10px; text-align:right; opacity:.8; }
+
+  .layer { position:absolute; inset:0; z-index:1; pointer-events:none; }
+  .layer.front { z-index:2; }
+
+  /* --- vagues --- */
+  @keyframes drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .waves { position:absolute; bottom:0; left:0; width:200%; height:110px; }
+  .w1 { animation: drift 26s linear infinite; }
+  .w2 { animation: drift 17s linear infinite; }
+  .w3 { animation: drift 11s linear infinite; }
+
+  /* --- bateau : tangage + derive --- */
+  @keyframes sail { from { transform: translateX(-14%); } to { transform: translateX(112%); } }
+  @keyframes bob  { 0%,100% { transform: translateY(0) rotate(-3deg); }
+                    50%     { transform: translateY(-5px) rotate(3deg); } }
+  .boat-track { position:absolute; bottom:56px; left:0; animation: sail 44s linear infinite; }
+  .boat { animation: bob 3.4s ease-in-out infinite; transform-origin: 50% 90%; }
+
+  /* --- orque qui saute --- */
+  @keyframes breach {
+    0%, 62%   { transform: translate(0,120px) rotate(-18deg); opacity:0; }
+    68%       { transform: translate(14px,4px) rotate(-26deg); opacity:1; }
+    76%       { transform: translate(30px,-26px) rotate(-4deg); opacity:1; }
+    84%       { transform: translate(46px,2px) rotate(24deg); opacity:1; }
+    92%, 100% { transform: translate(58px,120px) rotate(42deg); opacity:0; }
+  }
+  .breacher { position:absolute; bottom:44px; right:16%; animation: breach 9s ease-in-out infinite; }
+
+  /* --- bulles laterales --- */
+  @keyframes rise { from { transform: translateY(0) scale(.7); opacity:0; }
+                    18%  { opacity:.55; }
+                    to   { transform: translateY(-260px) scale(1.15); opacity:0; } }
+  .bubble { position:absolute; border-radius:50%; background:rgba(127,227,240,.35);
+            animation: rise linear infinite; }
+
+  .note { font-size:11px; opacity:.62; line-height:1.55; margin-top:10px; }
+</style>
+
+<div class="options">
+
+  <div class="option" data-choice="vivant" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Vivant — vagues, bateau, orque qui saute, bulles</h3>
+      <p>Tout ce que tu as demandé. L'orque perce la surface toutes les neuf secondes, le bateau traverse en quarante-quatre, les bulles montent sur la gauche.</p>
+      <div class="scene">
+        <!-- bulles -->
+        <div class="layer">
+          <span class="bubble" style="left:5%;  bottom:40px; width:5px;  height:5px;  animation-duration:9s;  animation-delay:0s"></span>
+          <span class="bubble" style="left:8%;  bottom:40px; width:3px;  height:3px;  animation-duration:12s; animation-delay:2.5s"></span>
+          <span class="bubble" style="left:3.5%;bottom:40px; width:7px;  height:7px;  animation-duration:14s; animation-delay:5s"></span>
+          <span class="bubble" style="left:93%; bottom:40px; width:4px;  height:4px;  animation-duration:11s; animation-delay:1.5s"></span>
+          <span class="bubble" style="left:96%; bottom:40px; width:6px;  height:6px;  animation-duration:15s; animation-delay:6.5s"></span>
+        </div>
+
+        <!-- orque qui saute, derriere la vague de devant -->
+        <div class="layer">
+          <svg class="breacher" width="66" height="46" viewBox="0 0 66 46" fill="none">
+            <path d="M4 34c8-16 22-27 40-30 6-1 12 0 18 3-4 7-11 12-19 15-3 8-9 14-17 17-8 3-16 1-22-5z" fill="#0f2f4a"/>
+            <path d="M30 8c3-4 8-6 13-6-1 5-4 9-9 11l-4-5z" fill="#0f2f4a"/>
+            <path d="M12 30c7-12 19-21 33-24-9 6-16 14-21 24-4 2-8 2-12 0z" fill="#e8f1f8" opacity=".9"/>
+            <circle cx="45" cy="12" r="1.8" fill="#e8f1f8"/>
+          </svg>
+        </div>
+
+        <!-- vagues arriere -->
+        <div class="layer">
+          <svg class="waves w1" viewBox="0 0 1200 110" preserveAspectRatio="none">
+            <path d="M0,55 C150,20 300,90 450,55 C600,20 750,90 900,55 C1050,20 1125,75 1200,55 L1200,110 L0,110Z" fill="#123a5e" opacity=".55"/>
+          </svg>
+        </div>
+        <div class="layer">
+          <svg class="waves w2" viewBox="0 0 1200 110" preserveAspectRatio="none">
+            <path d="M0,68 C180,38 320,98 500,68 C680,38 820,98 1000,68 C1100,50 1160,80 1200,68 L1200,110 L0,110Z" fill="#0d2c49" opacity=".8"/>
+          </svg>
+        </div>
+
+        <!-- bateau, entre deux vagues -->
+        <div class="layer front">
+          <div class="boat-track">
+            <svg class="boat" width="52" height="40" viewBox="0 0 52 40" fill="none">
+              <path d="M8 30h34l-4 7H12z" fill="#7fe3f0" opacity=".85"/>
+              <path d="M25 3v25" stroke="#7fe3f0" stroke-width="1.6" opacity=".7"/>
+              <path d="M26 5l13 11H26z" fill="#7fe3f0" opacity=".55"/>
+              <path d="M24 8L13 18h11z" fill="#7fe3f0" opacity=".35"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- vague de devant -->
+        <div class="layer front">
+          <svg class="waves w3" viewBox="0 0 1200 110" preserveAspectRatio="none">
+            <path d="M0,82 C200,58 340,104 520,82 C700,60 860,104 1040,82 C1120,72 1170,90 1200,82 L1200,110 L0,110Z" fill="#071827"/>
+          </svg>
+        </div>
+
+        <div class="ui">
+          <div class="t">Orquantix</div>
+          <div class="r"><b>angleterre</b><div class="bar"><i style="width:99%;background:#7fe3f0"></i></div><span class="n">99.99%</span></div>
+          <div class="r"><b>canadien</b><div class="bar"><i style="width:70%;background:#5ec8e5"></i></div><span class="n">70.16%</span></div>
+          <div class="r"><b>archibald</b><div class="bar"><i style="width:1%;background:#4a5f7a"></i></div><span class="n">0.43%</span></div>
+        </div>
+      </div>
+      <p class="note"><strong>À surveiller :</strong> trois animations simultanées attirent l'œil pendant que tu réfléchis à un mot. Le saut de l'orque est le plus voyant — c'est aussi le plus joli.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="calme" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Calme — mêmes éléments, beaucoup plus lents</h3>
+      <p>Vagues très lentes, bateau lointain, orque qui ne saute que toutes les vingt-cinq secondes et plus discrètement. On sent que ça bouge sans que ça capte le regard.</p>
+      <div class="scene">
+        <div class="layer" style="opacity:.55">
+          <svg class="breacher" style="animation-duration:25s;right:22%;transform-origin:50% 100%" width="48" height="34" viewBox="0 0 66 46" fill="none">
+            <path d="M4 34c8-16 22-27 40-30 6-1 12 0 18 3-4 7-11 12-19 15-3 8-9 14-17 17-8 3-16 1-22-5z" fill="#0f2f4a"/>
+            <path d="M12 30c7-12 19-21 33-24-9 6-16 14-21 24-4 2-8 2-12 0z" fill="#c9dced" opacity=".8"/>
+          </svg>
+        </div>
+        <div class="layer">
+          <svg class="waves w1" style="animation-duration:60s" viewBox="0 0 1200 110" preserveAspectRatio="none">
+            <path d="M0,62 C150,44 300,80 450,62 C600,44 750,80 900,62 C1050,44 1125,72 1200,62 L1200,110 L0,110Z" fill="#123a5e" opacity=".4"/>
+          </svg>
+        </div>
+        <div class="layer front">
+          <div class="boat-track" style="animation-duration:100s;bottom:60px;opacity:.5">
+            <svg class="boat" style="animation-duration:6s" width="38" height="30" viewBox="0 0 52 40" fill="none">
+              <path d="M8 30h34l-4 7H12z" fill="#7fe3f0" opacity=".7"/>
+              <path d="M25 3v25" stroke="#7fe3f0" stroke-width="1.6" opacity=".55"/>
+              <path d="M26 5l13 11H26z" fill="#7fe3f0" opacity=".4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="layer front">
+          <svg class="waves w3" style="animation-duration:38s" viewBox="0 0 1200 110" preserveAspectRatio="none">
+            <path d="M0,86 C200,72 340,100 520,86 C700,72 860,100 1040,86 C1120,80 1170,92 1200,86 L1200,110 L0,110Z" fill="#071827"/>
+          </svg>
+        </div>
+        <div class="ui">
+          <div class="t">Orquantix</div>
+          <div class="r"><b>angleterre</b><div class="bar"><i style="width:99%;background:#7fe3f0"></i></div><span class="n">99.99%</span></div>
+          <div class="r"><b>canadien</b><div class="bar"><i style="width:70%;background:#5ec8e5"></i></div><span class="n">70.16%</span></div>
+          <div class="r"><b>archibald</b><div class="bar"><i style="width:1%;background:#4a5f7a"></i></div><span class="n">0.43%</span></div>
+        </div>
+      </div>
+      <p class="note"><strong>À surveiller :</strong> peut-être trop sage — au premier lancement on risque de ne pas remarquer que la scène est animée.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="note" style="margin-top:16px">
+  Une troisième voie existe : <strong>l'orque saute quand tu trouves le mot</strong>, et reste sous l'eau
+  le reste du temps. La scène est alors calme pendant la réflexion et se réveille au moment de la victoire.
+  Dis-moi si ça t'intéresse, je le maquette.
+</p>
+<p class="note">
+  Note technique : tout est vectoriel et animé en CSS, donc zéro image à produire et un coût de rendu
+  négligeable. Je prévoirai un repli <code>prefers-reduced-motion</code> qui fige la scène pour qui
+  désactive les animations dans macOS.
+</p>

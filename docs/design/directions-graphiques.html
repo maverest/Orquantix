@@ -1,0 +1,139 @@
+<h2>Trois directions graphiques</h2>
+<p class="subtitle">
+  Mêmes assets — l'orque, les easter eggs, les icônes de proximité restent intacts.
+  Ce qui change : le fond, le titre, la typographie, les couleurs, le traitement du tableau.
+  Chaque maquette montre l'écran de jeu avec de vraies données (cible <em>anglais</em>).
+</p>
+
+<style>
+  .dir { border-radius: 14px; overflow: hidden; border: 1px solid rgba(128,128,128,.25); }
+  .dir-body { padding: 18px 16px 16px; }
+  .ttl { font-weight: 800; text-transform: uppercase; line-height: .95; margin: 0 0 3px; }
+  .sub { font-size: 10px; opacity: .65; margin: 0 0 14px; letter-spacing: .08em; text-transform: uppercase; }
+  .row { display: grid; grid-template-columns: 20px 1fr 96px 46px 24px; gap: 8px;
+         align-items: center; padding: 6px 0; font-size: 11.5px; }
+  .bar { height: 7px; border-radius: 99px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 99px; }
+  .num { font-variant-numeric: tabular-nums; font-size: 10.5px; text-align: right; }
+  .badge { font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 99px; }
+  .orq { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-radius: 10px;
+         margin-top: 13px; font-size: 11px; }
+  .disc { width: 30px; height: 30px; border-radius: 50%; flex: none;
+          display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .inp { margin-top: 12px; padding: 8px 11px; border-radius: 8px; font-size: 11px; }
+  .note { font-size: 11px; opacity: .62; line-height: 1.55; margin-top: 10px; }
+
+  /* ---------- A : Abysse ---------- */
+  .a { background: linear-gradient(175deg,#060d18 0%,#0b1a2e 45%,#102844 100%); color:#e8f1f8; }
+  .a .ttl { font-family: "Avenir Next","Helvetica Neue",sans-serif; font-size: 30px;
+            letter-spacing:.16em; color:#7fe3f0;
+            text-shadow: 0 0 22px rgba(127,227,240,.45); }
+  .a .sub { color:#7fe3f0; opacity:.5; }
+  .a .row { border-bottom: 1px solid rgba(127,227,240,.09); }
+  .a .bar { background: rgba(255,255,255,.07); }
+  .a .badge { background: rgba(127,227,240,.16); color:#7fe3f0; }
+  .a .orq { background: rgba(127,227,240,.07); border:1px solid rgba(127,227,240,.16); }
+  .a .disc { background: rgba(127,227,240,.14); }
+  .a .inp { background: rgba(255,255,255,.05); border:1px solid rgba(127,227,240,.22); color:#9fb8cc; }
+
+  /* ---------- B : Arcade ---------- */
+  .b { background:#1b1035; color:#fff6e8; }
+  .b .ttl { font-family:"Impact","Haettenschweiler",sans-serif; font-size:34px; letter-spacing:.03em;
+            color:#ffd23f; -webkit-text-stroke: 2px #12081f;
+            text-shadow: 4px 4px 0 #ee4266, 8px 8px 0 rgba(0,0,0,.35); }
+  .b .sub { color:#ff8fab; opacity:.9; }
+  .b .row { border-bottom: 2px solid rgba(255,210,63,.14); }
+  .b .bar { background:#12081f; border:2px solid #3d2a63; height:11px; border-radius:3px; }
+  .b .bar > i { border-radius:0; }
+  .b .badge { background:#ffd23f; color:#12081f; border-radius:3px; }
+  .b .orq { background:#2a1a4d; border:2px solid #ffd23f; border-radius:4px; }
+  .b .disc { background:#ee4266; border-radius:4px; }
+  .b .inp { background:#12081f; border:2px solid #3d2a63; border-radius:3px; color:#8f7fb8; }
+
+  /* ---------- C : Risographie ---------- */
+  .c { background:#f4f0e6; color:#1f2933;
+       background-image: radial-gradient(rgba(31,41,51,.055) 1px, transparent 1px);
+       background-size: 4px 4px; }
+  .c .ttl { font-family:"Georgia","Iowan Old Style",serif; font-size:29px; letter-spacing:-.01em;
+            text-transform:none; font-style:italic; color:#c1502e; }
+  .c .sub { color:#5a6673; }
+  .c .row { border-bottom: 1px solid rgba(31,41,51,.13); }
+  .c .bar { background: rgba(31,41,51,.09); }
+  .c .badge { background:#1f2933; color:#f4f0e6; }
+  .c .orq { background:#fffdf7; border:1px solid rgba(31,41,51,.16); }
+  .c .disc { background:#e8dcc4; }
+  .c .inp { background:#fffdf7; border:1px solid rgba(31,41,51,.22); color:#7b8794; }
+</style>
+
+<div class="options">
+
+  <div class="option" data-choice="abysse" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Abysse — sombre et lumineux</h3>
+      <p>Le fond descend dans l'eau profonde. L'orque devient un objet clair sur du noir : c'est lui qui éclaire l'écran. Les barres brillent comme des instruments.</p>
+      <div class="dir a">
+        <div class="dir-body">
+          <div class="ttl">Orquantix</div>
+          <div class="sub">difficulté ★☆☆☆☆ · 7 lettres</div>
+          <div class="row"><span style="opacity:.4">1</span><b>angleterre</b><div class="bar"><i class="c1" style="width:99%;background:#7fe3f0"></i></div><span class="num">99.99%</span><span>☀️</span></div>
+          <div class="row"><span style="opacity:.4">3</span><b>canadien</b><div class="bar"><i style="width:70%;background:#5ec8e5"></i></div><span class="num">70.16%</span><span>🤯</span></div>
+          <div class="row"><span style="opacity:.4">2</span><b>baser</b><div class="bar"><i style="width:30%;background:#4a90c4"></i></div><span class="num">29.88%</span><span>🤨</span></div>
+          <div class="row"><span style="opacity:.4">4</span><b>archibald</b><div class="bar"><i style="width:1%;background:#4a5f7a"></i></div><span class="num">0.43%</span><span>😤</span></div>
+          <div class="orq"><div class="disc">🐋</div><span style="opacity:.85">Hmmmm okok</span></div>
+          <div class="inp">Proposez un mot…</div>
+        </div>
+      </div>
+      <p class="note"><strong>Pour :</strong> moderne, ça respire le soin. Tes PNG clairs ressortent énormément. <strong>Contre :</strong> plus froid, moins « jeu de plage ». Il faudra peut-être retoucher les icônes de proximité si elles sont sombres.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="arcade" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Arcade — épais et bruyant</h3>
+      <p>Assume complètement le jeu. Titre massif à ombre décalée, bordures épaisses, jaune et rose saturés sur violet. C'est celle qui a le plus de caractère.</p>
+      <div class="dir b">
+        <div class="dir-body">
+          <div class="ttl">Orquantix</div>
+          <div class="sub">★☆☆☆☆ · 7 lettres</div>
+          <div class="row"><span style="opacity:.5">1</span><b>angleterre</b><div class="bar"><i style="width:99%;background:#ffd23f"></i></div><span class="num">99.99%</span><span>☀️</span></div>
+          <div class="row"><span style="opacity:.5">3</span><b>canadien</b><div class="bar"><i style="width:70%;background:#ff8fab"></i></div><span class="num">70.16%</span><span>🤯</span></div>
+          <div class="row"><span style="opacity:.5">2</span><b>baser</b><div class="bar"><i style="width:30%;background:#ee4266"></i></div><span class="num">29.88%</span><span>🤨</span></div>
+          <div class="row"><span style="opacity:.5">4</span><b>archibald</b><div class="bar"><i style="width:2%;background:#6b4fa0"></i></div><span class="num">0.43%</span><span>😤</span></div>
+          <div class="orq"><div class="disc">🐋</div><span>Hmmmm okok</span></div>
+          <div class="inp">Proposez un mot…</div>
+        </div>
+      </div>
+      <p class="note"><strong>Pour :</strong> mémorable, très typé, va bien avec le trash talk de l'orque. <strong>Contre :</strong> fatigant sur une longue partie, et le violet saturé peut jurer avec le bleu de tes dessins.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="riso" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Risographie — papier et encres</h3>
+      <p>Fond papier grainé, deux encres seulement, titre en italique sérif. C'est la direction qui épouse le mieux le trait dessiné à la main de ton orque.</p>
+      <div class="dir c">
+        <div class="dir-body">
+          <div class="ttl">Orquantix</div>
+          <div class="sub">difficulté ★☆☆☆☆ · 7 lettres</div>
+          <div class="row"><span style="opacity:.45">1</span><b>angleterre</b><div class="bar"><i style="width:99%;background:#c1502e"></i></div><span class="num">99.99%</span><span>☀️</span></div>
+          <div class="row"><span style="opacity:.45">3</span><b>canadien</b><div class="bar"><i style="width:70%;background:#d97b4f"></i></div><span class="num">70.16%</span><span>🤯</span></div>
+          <div class="row"><span style="opacity:.45">2</span><b>baser</b><div class="bar"><i style="width:30%;background:#5a8fa8"></i></div><span class="num">29.88%</span><span>🤨</span></div>
+          <div class="row"><span style="opacity:.45">4</span><b>archibald</b><div class="bar"><i style="width:1%;background:#9aa5b1"></i></div><span class="num">0.43%</span><span>😤</span></div>
+          <div class="orq"><div class="disc">🐋</div><span>Hmmmm okok</span></div>
+          <div class="inp">Proposez un mot…</div>
+        </div>
+      </div>
+      <p class="note"><strong>Pour :</strong> chaleureux, adulte, « jeu indépendant » plutôt qu'application. Tes dessins y sont parfaitement à leur place. <strong>Contre :</strong> le moins spectaculaire des trois, moins d'effet « waouh » au premier lancement.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="note" style="margin-top:18px">
+  Les emojis d'humeur sont là en remplacement de tes vraies icônes <code>proximity_assets</code> —
+  je ne peux pas les charger dans cette page. Dans le jeu, ce sont tes dessins qui apparaissent.
+  Rien dans ces trois directions ne touche à l'orque, aux easter eggs ni aux icônes.
+</p>
